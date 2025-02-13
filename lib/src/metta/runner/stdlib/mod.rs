@@ -10,6 +10,7 @@ pub mod debug;
 pub mod space;
 pub mod core;
 pub mod arithmetics;
+pub mod das;
 
 use crate::*;
 use crate::space::*;
@@ -72,6 +73,7 @@ pub fn register_common_tokens(tref: &mut Tokenizer, _tokenizer: Shared<Tokenizer
     atom::register_common_tokens(tref, space);
     module::register_common_tokens(tref, metta);
     space::register_common_tokens(tref);
+    das::register_common_tokens(tref);
     debug::register_common_tokens(tref);
 
     #[cfg(feature = "pkg_mgmt")]

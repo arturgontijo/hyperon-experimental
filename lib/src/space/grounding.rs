@@ -1,6 +1,10 @@
 //! Simple implementation of space which uses in-memory vector of atoms as
 //! an underlying storage.
 
+use das::{DASNode, ServerStatus};
+use tokio::sync::Mutex;
+
+use crate::matcher::Bindings;
 use crate::*;
 use super::*;
 use crate::atom::*;
@@ -9,9 +13,12 @@ use crate::atom::subexpr::split_expr;
 use crate::common::multitrie::{MultiTrie, TrieKey, TrieToken};
 
 use std::fmt::Debug;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hasher};
+use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 use crate::common::collections::ImmutableString;
 
 // Grounding space
@@ -85,6 +92,7 @@ pub struct GroundingSpace {
     content: Vec<Atom>,
     free: BTreeSet<usize>,
     common: SpaceCommon,
+    das_node: Option<Arc<Mutex<Option<DASNode>>>>,
     name: Option<String>,
 }
 
@@ -97,6 +105,18 @@ impl GroundingSpace {
             content: Vec::new(),
             free: BTreeSet::new(),
             common: SpaceCommon::default(),
+            name: None,
+            das_node: None,
+        }
+    }
+
+    pub fn new_with_das(das_node: Arc<Mutex<Option<DASNode>>>) -> Self {
+        Self {
+            index: MultiTrie::new(),
+            content: Vec::new(),
+            free: BTreeSet::new(),
+            common: SpaceCommon::default(),
+            das_node: Some(das_node),
             name: None,
         }
     }
@@ -113,6 +133,7 @@ impl GroundingSpace {
             free: BTreeSet::new(),
             common: SpaceCommon::default(),
             name: None,
+            das_node: None,
         }
     }
 
@@ -246,28 +267,173 @@ impl GroundingSpace {
     /// assert_eq!(result, bind_set![{x: sym!("B")}]);
     /// ```
     pub fn query(&self, query: &Atom) -> BindingsSet {
-        match split_expr(query) {
-            // Cannot match with COMMA_SYMBOL here, because Rust allows
-            // it only when Atom has PartialEq and Eq derived.
-            Some((sym @ Atom::Symbol(_), args)) if *sym == COMMA_SYMBOL => {
-                args.fold(BindingsSet::single(),
-                    |mut acc, query| {
-                        let result = if acc.is_empty() {
-                            acc
+        if let Some(das_node) = &self.das_node {
+
+            let mut bindings_set = BindingsSet::empty();
+
+            // Parsing possible parameters: ((max_results) (min_importance) (query))
+            let (max_results, min_importance, query_strip) = match query {
+                Atom::Expression(exp_atom) => {
+                    let children = exp_atom.children();
+                    let exp_len = children.len();
+
+                    let is_exp = match children.get(0).unwrap() {
+                        Atom::Symbol(_) => false,
+                        Atom::Expression(_) => true,
+                        _ => return bindings_set,
+                    };
+
+                    if is_exp {
+                        if exp_len == 1 {
+                            let query_strip = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
+                            (0, 0, query_strip)
+                        } else if exp_len == 2 {
+                            let max_results = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
+                            let query_strip = children.get(1).unwrap().to_string().replace("(", "").replace(")", "");
+                            (max_results.parse::<usize>().unwrap(), 0, query_strip)
+                        } else if exp_len == 3 {
+                            let max_results = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
+                            let min_importance = children.get(1).unwrap().to_string().replace("(", "").replace(")", "");
+                            let query_strip = children.get(2).unwrap().to_string().replace("(", "").replace(")", "");
+                            (max_results.parse::<usize>().unwrap(), min_importance.parse::<u32>().unwrap(), query_strip)
                         } else {
-                            acc.drain(0..).flat_map(|prev| -> BindingsSet {
-                                let query = matcher::apply_bindings_to_atom_move(query.clone(), &prev);
-                                let mut res = self.query(&query);
-                                res.drain(0..)
-                                    .flat_map(|next| next.merge(&prev))
-                                    .collect()
-                            }).collect()
-                        };
-                        log::debug!("query: current result: {:?}", result);
-                        result
-                    })
-            },
-            _ => self.single_query(query),
+                            (0, 0u32, "".to_string())
+                        }
+                    } else {
+                        let query_strip = query.clone().to_string().replace("(", "").replace(")", "");
+                        (0, 0u32, query_strip)
+                    }
+                },
+                _ => return bindings_set,
+            };
+
+            log::trace!(target: "das", "DASNode::query(params): max={:?} | min={:?} | q={:?}", max_results, min_importance, query_strip);
+
+            // Getting the VARIABLES
+            let mut variables: HashMap<String, String> = HashMap::new();
+            let cloned = query_strip.clone();
+            let splitted: Vec<&str> = cloned.split_whitespace().collect();
+            for (idx, word) in splitted.clone().iter().enumerate() {
+                if *word == "VARIABLE" {
+                    variables.insert(splitted[idx+1].to_string(), "".to_string());
+                }
+            }
+
+            // DASNode::query() params:
+            let pattern = query_strip.clone();
+            let context = match &self.name {
+                Some(name) => name.clone(),
+                None => "context".to_string(),
+            };
+            let update_attention_broker = false;
+
+            {
+                let das_node_clone = Arc::clone(&das_node);
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let mut guard = das_node_clone.lock().await;
+                    if let Some(node) = guard.as_mut() {
+                        if node.is_complete() {
+                            log::debug!(target: "das", "DASNode::query(): Sending request...");
+                            node.query(&pattern, &context, update_attention_broker).await.unwrap();
+                        }
+                    }
+                });
+            }
+
+            sleep(Duration::from_millis(250));
+
+            let mut waiting = true;
+            while waiting {
+                log::trace!(target: "das", "DASNode::while(sleep)...");
+                match das_node.try_lock() {
+                    Ok(node) => {
+                        let n = node.clone().unwrap();
+                        log::trace!(target: "das", "DASNode::while(status): {:?}", n.get_status());
+
+                        let results = n.get_results();
+                        log::trace!(target: "das", "DASNode::while(results): len={:?}", results.len());
+                        for result in &results {
+                            let splitted: Vec<&str> = result.split_whitespace().collect();
+                            for (idx, word) in splitted.clone().iter().enumerate() {
+                                if let Some(value) = variables.get_mut(&word.to_string()) {
+                                    *value = splitted[idx+1].to_string();
+                                }
+                            }
+                            let mut bindings = Bindings::new();
+                            for key in variables.keys() {
+                                let value = variables.get(key).unwrap();
+                                bindings = bindings.add_var_binding(&VariableAtom::new(key), &Atom::sym(value)).unwrap();
+                            }
+                            bindings_set.push(bindings);
+                            if max_results > 0 && bindings_set.len() >= max_results {
+                                break;
+                            }
+                        }
+
+                        if n.get_status() == ServerStatus::Ready || max_results > 0 && bindings_set.len() >= max_results {
+                            waiting = false;
+                        }
+                    }
+                    Err(err) => { log::trace!(target: "das", "DASNode::while(locked): {:?}", err); },
+                }
+                sleep(Duration::from_millis(250));
+            }
+
+            // ----- NO DAS -----
+            // > !(match &self (, (Similarity $1 $2) (Inheritance $2 "plant")) (Similarity $1 $2))
+            // BindingsSet[len=2]: BindingsSet([{ $1 <- "snake", $2 <- "vine" }, { $1 <- "human", $2 <- "ent" }])
+            // BindingsSet[len=0]: BindingsSet([])
+            // [(Similarity "snake" "vine"), (Similarity "human" "ent")]
+
+            // ----- DAS -----
+            // !(bind! &das (new-das))
+            // !(match &das (AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2 LINK_TEMPLATE Expression 3 NODE Symbol Inheritance VARIABLE V2 NODE Symbol "plant") (Similarity $V1 $V2))
+            // BindingsSet[len=2]: BindingsSet([{ $V1 <- 8860480382d0ddf62623abf5c860e51d, $V2 <- a408f6dd446cdd4fa56f82e77fe6c870 }, { $V1 <- 25bdf4cba0b59adfa07dd103d033bca9, $V2 <- 1fc9300891b7a5d6583f0f85a83b9ddb }])
+            // [(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+            // !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2) (Similarity $V1 $V2))
+            // BindingsSet[len=2]: BindingsSet([{ $V1 <- 8860480382d0ddf62623abf5c860e51d, $V2 <- a408f6dd446cdd4fa56f82e77fe6c870 }, { $V1 <- 25bdf4cba0b59adfa07dd103d033bca9, $V2 <- 1fc9300891b7a5d6583f0f85a83b9ddb }])
+            // [(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+            // !(match &das ((1) (LINK_TEMPLATE Expression 3 NODE Symbol Inheritance VARIABLE V2 NODE Symbol "mammal")) (Inheritance $V2))
+            // BindingsSet[len=1]: BindingsSet([{ $V2 <- 3225ea795289574ceee32e091ad54ef4 }])
+            // [(Inheritance 3225ea795289574ceee32e091ad54ef4)]
+
+            // !(add-atom &das (Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870))
+            // !(add-atom &das (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb))
+            // !(get-atoms &das)
+            // [(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+            log::trace!(target: "das", "DASNode::query(das): BindingsSet[len={}]: {:?}", bindings_set.len(), bindings_set);
+            bindings_set
+
+        } else {
+            match split_expr(query) {
+                // Cannot match with COMMA_SYMBOL here, because Rust allows
+                // it only when Atom has PartialEq and Eq derived.
+                Some((sym @ Atom::Symbol(_), args)) if *sym == COMMA_SYMBOL => {
+                    let b = args.fold(BindingsSet::single(),
+                        |mut acc, query| {
+                            let result = if acc.is_empty() {
+                                acc
+                            } else {
+                                acc.drain(0..).flat_map(|prev| -> BindingsSet {
+                                    let query = matcher::apply_bindings_to_atom_move(query.clone(), &prev);
+                                    let mut res = self.query(&query);
+                                    res.drain(0..)
+                                        .flat_map(|next| next.merge(&prev))
+                                        .collect()
+                                }).collect()
+                            };
+                            log::debug!("query: current result: {:?}", result);
+                            result
+                        });
+                    log::debug!(target: "das", "query(normal): BindingsSet[len={}]: {:?}", b.len(), b);
+                    b
+                },
+                _ => self.single_query(query),
+            }
         }
     }
 
