@@ -8,6 +8,7 @@ use das::{DASNode, GrpcServer, ServerStatus};
 use tokio::sync::Mutex;
 
 use crate::matcher::{Bindings, BindingsSet};
+use crate::space::distributed::DistributedAtomSpace;
 use crate::{space::DynSpace, *};
 use crate::metta::*;
 use crate::metta::text::Tokenizer;
@@ -28,8 +29,8 @@ impl Grounded for NewDasOp {
     }
 }
 
-fn new_das_node(server_host: String, server_port: u16, client_host: String, client_port: u16) -> Arc<Mutex<Option<DASNode>>> {
-    let das_node = Arc::new(Mutex::new(None));
+fn new_das_node(server_host: String, server_port: u16, client_host: String, client_port: u16) -> Arc<Mutex<DASNode>> {
+    let das_node = Arc::new(Mutex::new(DASNode::default()));
     let das_node_clone = Arc::clone(&das_node);
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -48,7 +49,7 @@ fn new_das_node(server_host: String, server_port: u16, client_host: String, clie
             });
         }
 
-        *das_node_clone.lock().await = Some(node);
+        *das_node_clone.lock().await = node;
         log::trace!(target: "das", "das::new_das_node(): startup done!");
     });
     das_node
@@ -72,7 +73,7 @@ impl CustomExecute for NewDasOp {
             let (server_host, server_port) = extract_host_and_port(server)?;
             let (client_host, client_port) = extract_host_and_port(client)?;
             let das_node = new_das_node(server_host, server_port, client_host, client_port);
-            let space = Atom::gnd(DynSpace::new(GroundingSpace::new_with_das(das_node)));
+            let space = Atom::gnd(DynSpace::new(DistributedAtomSpace::new(das_node, Some("context".to_string()))));
             Ok(vec![space])
         } else {
             Err("new-das expects 2 arguments (eg !(new-das 0.0.0.0:8080 0.0.0.0:35700)".into())
@@ -85,7 +86,7 @@ pub fn register_common_tokens(tref: &mut Tokenizer) {
     tref.register_token(regex(r"new-das"), move |_| { new_das_op.clone() });
 }
 
-pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<Option<DASNode>>>, query: &Atom) -> BindingsSet {
+pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>, query: &Atom) -> BindingsSet {
     let mut bindings_set = BindingsSet::empty();
     // Parsing possible parameters: ((max_results) (min_importance) (query))
     let (max_results, min_importance, query_strip) = match query {
@@ -147,12 +148,10 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<Option<DA
         let das_node_clone = Arc::clone(&das_node);
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let mut guard = das_node_clone.lock().await;
-            if let Some(node) = guard.as_mut() {
-                if node.is_complete() {
-                    log::debug!(target: "das", "DASNode::query(): Sending request...");
-                    node.query(&pattern, &context, update_attention_broker).await.unwrap();
-                }
+            let mut node = das_node_clone.lock().await;
+            if node.is_complete() {
+                log::debug!(target: "das", "DASNode::query(): Sending request...");
+                node.query(&pattern, &context, update_attention_broker).await.unwrap();
             }
         });
     }
@@ -164,7 +163,7 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<Option<DA
         log::trace!(target: "das", "DASNode::while(sleep)...");
         match das_node.try_lock() {
             Ok(node) => {
-                let n = node.clone().unwrap();
+                let n = node.clone();
                 log::trace!(target: "das", "DASNode::while(status): {:?}", n.get_status());
 
                 let results = n.get_results();

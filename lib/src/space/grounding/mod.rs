@@ -13,13 +13,6 @@ use index::*;
 
 pub use index::{ALLOW_DUPLICATION, NO_DUPLICATION};
 
-// DAS
-use tokio::sync::Mutex;
-use std::sync::Arc;
-
-use das::DASNode;
-use crate::metta::runner::stdlib::das::query_with_das;
-
 // Grounding space
 
 /// Symbol to concatenate queries to space.
@@ -31,7 +24,6 @@ pub const COMMA_SYMBOL : Atom = sym!(",");
 pub struct GroundingSpace<D: DuplicationStrategy = AllowDuplication> {
     index: AtomIndex<D>,
     common: SpaceCommon,
-    das_node: Option<Arc<Mutex<Option<DASNode>>>>,
     name: Option<String>,
 }
 
@@ -39,15 +31,6 @@ impl GroundingSpace {
     /// Constructs new empty space.
     pub fn new() -> Self {
         Self::with_strategy(ALLOW_DUPLICATION)
-    }
-
-    pub fn new_with_das(das_node: Arc<Mutex<Option<DASNode>>>) -> Self {
-        Self {
-            index: AtomIndex::with_strategy(ALLOW_DUPLICATION),
-            common: SpaceCommon::default(),
-            das_node: Some(das_node),
-            name: None,
-        }
     }
 
     /// Constructs space from vector of atoms.
@@ -59,7 +42,6 @@ impl GroundingSpace {
         Self{
             index,
             common: SpaceCommon::default(),
-            das_node: None,
             name: None,
         }
     }
@@ -71,7 +53,6 @@ impl<D: DuplicationStrategy> GroundingSpace<D> {
         Self {
             index: AtomIndex::with_strategy(strategy),
             common: SpaceCommon::default(),
-            das_node: None,
             name: None,
         }
     }
@@ -171,32 +152,28 @@ impl<D: DuplicationStrategy> GroundingSpace<D> {
     /// assert_eq!(result, bind_set![{x: sym!("B")}]);
     /// ```
     pub fn query(&self, query: &Atom) -> BindingsSet {
-        if let Some(das_node) = &self.das_node {
-            query_with_das(self.name.clone(), das_node, query)
-        } else {
-            match split_expr(query) {
-                // Cannot match with COMMA_SYMBOL here, because Rust allows
-                // it only when Atom has PartialEq and Eq derived.
-                Some((sym @ Atom::Symbol(_), args)) if *sym == COMMA_SYMBOL => {
-                    args.fold(BindingsSet::single(),
-                        |mut acc, query| {
-                            let result = if acc.is_empty() {
-                                acc
-                            } else {
-                                acc.drain(0..).flat_map(|prev| -> BindingsSet {
-                                    let query = matcher::apply_bindings_to_atom_move(query.clone(), &prev);
-                                    let mut res = self.query(&query);
-                                    res.drain(0..)
-                                        .flat_map(|next| next.merge(&prev))
-                                        .collect()
-                                }).collect()
-                            };
-                            log::debug!("query: current result: {:?}", result);
-                            result
-                        })
-                },
-                _ => self.single_query(query),
-            }
+        match split_expr(query) {
+            // Cannot match with COMMA_SYMBOL here, because Rust allows
+            // it only when Atom has PartialEq and Eq derived.
+            Some((sym @ Atom::Symbol(_), args)) if *sym == COMMA_SYMBOL => {
+                args.fold(BindingsSet::single(),
+                    |mut acc, query| {
+                        let result = if acc.is_empty() {
+                            acc
+                        } else {
+                            acc.drain(0..).flat_map(|prev| -> BindingsSet {
+                                let query = matcher::apply_bindings_to_atom_move(query.clone(), &prev);
+                                let mut res = self.query(&query);
+                                res.drain(0..)
+                                    .flat_map(|next| next.merge(&prev))
+                                    .collect()
+                            }).collect()
+                        };
+                        log::debug!("query: current result: {:?}", result);
+                        result
+                    })
+            },
+            _ => self.single_query(query),
         }
     }
 
