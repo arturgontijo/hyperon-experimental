@@ -8,9 +8,12 @@ use std::{
 use das::DASNode;
 use crate::{
     common::FlexRef,
-    matcher::BindingsSet,
+    matcher::{BindingsSet, MatchResultIter},
     metta::runner::stdlib::das::query_with_das,
-    Atom
+    rust_type_atom,
+    Atom,
+    CustomMatch,
+    Grounded,
 };
 
 use super::{
@@ -127,18 +130,18 @@ impl Display for DistributedAtomSpace {
     }
 }
 
-// impl Grounded for DistributedAtomSpace {
-//     fn type_(&self) -> Atom {
-//         rust_type_atom::<DistributedAtomSpace>()
-//     }
+impl Grounded for DistributedAtomSpace {
+    fn type_(&self) -> Atom {
+        rust_type_atom::<DistributedAtomSpace>()
+    }
 
-//     fn as_match(&self) -> Option<&dyn CustomMatch> {
-//         Some(self)
-//     }
-// }
+    fn as_match(&self) -> Option<&dyn CustomMatch> {
+        Some(self)
+    }
+}
 
-// impl CustomMatch for DistributedAtomSpace {
-//     fn match_(&self, other: &Atom) -> matcher::MatchResultIter {
-//         Box::new(self.query(other).into_iter())
-//     }
-// }
+impl CustomMatch for DistributedAtomSpace {
+    fn match_(&self, other: &Atom) -> MatchResultIter {
+        Box::new(self.query(other).into_iter())
+    }
+}
