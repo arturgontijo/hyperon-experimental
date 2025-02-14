@@ -1,7 +1,3 @@
-// curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-// use hyperon::metta::runner::
-
 use tonic::{
     transport::Server,
     Request,
@@ -136,7 +132,8 @@ impl DASNode {
     }
 
     fn process_message(&self, msg: MessageData) -> (ServerStatus, Vec<String>) {
-        log::trace!("DASNode::process_message()[{}:{}]: MessageData -> {:?}", self.server_host, self.server_port, msg);
+        log::debug!("DASNode::process_message()[{}:{}]: MessageData -> len={:?}", self.server_host, self.server_port, msg.args.len());
+        log::trace!(" -> len={:?}", msg);
         match msg.command.as_str() {
             "node_joined_network" => (ServerStatus::Processing, vec![]),
             "query_answer_tokens_flow" => (ServerStatus::Processing, msg.args),
