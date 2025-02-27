@@ -1,16 +1,12 @@
-use tonic::{
-    transport::Server,
-    Request,
-    Response,
-    Status
-};
+use tonic::{transport::Server, Request, Response, Status};
 
+use regex::Regex;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use das_proto::atom_space_node_server::{AtomSpaceNode, AtomSpaceNodeServer};
 use das_proto::atom_space_node_client::AtomSpaceNodeClient;
-use das_proto::{MessageData, Ack, Empty};
+use das_proto::atom_space_node_server::{AtomSpaceNode, AtomSpaceNodeServer};
+use das_proto::{Ack, Empty, MessageData};
 
 mod das_proto {
     tonic::include_proto!("dasproto");
@@ -49,7 +45,7 @@ impl DASNode {
         server_host: String,
         server_port: u16,
         client_host: String,
-        client_port: u16
+        client_port: u16,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(DASNode {
             server_host,
@@ -68,19 +64,27 @@ impl DASNode {
             Err(err) => {
                 println!("DASNode::send(ERROR): {:?}", err);
                 return Err(Status::internal("Client failed to connect with remote!"));
-            },
+            }
         };
     }
 
-    pub async fn query(&mut self, pattern: &str, context: &str, update_attention_broker: bool) -> Result<Response<Empty>, Status> {
+    pub async fn query(
+        &mut self,
+        pattern: &str,
+        context: &str,
+        update_attention_broker: bool,
+        count: usize,
+        skip: usize,
+    ) -> Result<Response<Empty>, Status> {
         self.set_status(ServerStatus::Processing).await;
 
         let mut args = vec![
             format!("{}:{}", self.server_host, self.server_port),
             context.to_string(),
-            update_attention_broker.to_string()
+            update_attention_broker.to_string(),
+            format!("{}:{}", count, skip),
         ];
-        let pattern = pattern.split_whitespace().map(|token| token.to_string()).collect::<Vec<String>>();
+        let pattern = self.parse_pattern(pattern);
         args.extend(pattern);
 
         let request = Request::new(MessageData {
@@ -132,7 +136,12 @@ impl DASNode {
     }
 
     fn process_message(&self, msg: MessageData) -> (ServerStatus, Vec<String>) {
-        log::debug!("DASNode::process_message()[{}:{}]: MessageData -> len={:?}", self.server_host, self.server_port, msg.args.len());
+        log::debug!(
+            "DASNode::process_message()[{}:{}]: MessageData -> len={:?}",
+            self.server_host,
+            self.server_port,
+            msg.args.len()
+        );
         log::trace!(" -> len={:?}", msg);
         match msg.command.as_str() {
             "node_joined_network" => (ServerStatus::Processing, vec![]),
@@ -142,6 +151,19 @@ impl DASNode {
             "query_answers_finished" => (ServerStatus::Ready, vec![]),
             _ => (ServerStatus::Unknown, vec![]),
         }
+    }
+
+    fn parse_pattern(&self, pattern: &str) -> Vec<String> {
+        let re = Regex::new(r#""([^"]*)"|'([^']*)'|(\S+)"#).unwrap();
+        re.captures_iter(pattern)
+            .map(|cap| {
+                if let Some(m) = cap.get(1).or(cap.get(2)) {
+                    m.as_str().to_string()
+                } else {
+                    cap.get(3).unwrap().as_str().to_string()
+                }
+            })
+            .collect()
     }
 }
 
@@ -160,7 +182,10 @@ impl AtomSpaceNode for DASNode {
     }
 
     async fn ping(&self, _request: Request<Empty>) -> Result<Response<Ack>, Status> {
-        Ok(Response::new(Ack { error: false, msg: "ack".into() }))
+        Ok(Response::new(Ack {
+            error: false,
+            msg: "ack".into(),
+        }))
     }
 }
 
@@ -173,7 +198,10 @@ pub trait GrpcServer {
 impl GrpcServer for DASNode {
     async fn start_server(self) -> Result<(), Box<dyn std::error::Error>> {
         let addr = format!("{}:{}", self.server_host, self.server_port).parse()?;
-        log::debug!("DASNode::start_server(): Inside gRPC server thread at {:?}", addr);
+        log::debug!(
+            "DASNode::start_server(): Inside gRPC server thread at {:?}",
+            addr
+        );
         Server::builder()
             .add_service(AtomSpaceNodeServer::new(self))
             .serve(addr)
@@ -185,7 +213,10 @@ impl GrpcServer for DASNode {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread::{self, sleep}, time::Duration};
+    use std::{
+        thread::{self, sleep},
+        time::Duration,
+    };
 
     use super::*;
 
@@ -197,7 +228,14 @@ mod tests {
             rt.block_on(async {
                 let server_host = "0.0.0.0".to_string();
                 let server_port = 7777;
-                let mock_server = DASNode::new(server_host.clone(), server_port, "0.0.0.0".to_string(), 7778).await.unwrap();
+                let mock_server = DASNode::new(
+                    server_host.clone(),
+                    server_port,
+                    "0.0.0.0".to_string(),
+                    7778,
+                )
+                .await
+                .unwrap();
                 Server::builder()
                     .add_service(AtomSpaceNodeServer::new(mock_server))
                     .serve(format!("{}:{}", server_host, server_port).parse().unwrap())
@@ -224,7 +262,7 @@ mod tests {
         // Wait for mock server be up and running
         sleep(Duration::from_millis(250));
 
-        match das_node.query("TEST", "context", false).await {
+        match das_node.query("TEST", "context", false, 7, 0).await {
             Ok(_) => println!("OK!"),
             Err(e) => println!("Fail: {:?}", e),
         };

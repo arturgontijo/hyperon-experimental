@@ -7,12 +7,12 @@ use std::{thread, u16};
 use das::{DASNode, GrpcServer, ServerStatus};
 use tokio::sync::Mutex;
 
+use super::{grounded_op, regex};
 use crate::matcher::{Bindings, BindingsSet};
+use crate::metta::text::Tokenizer;
+use crate::metta::*;
 use crate::space::distributed::DistributedAtomSpace;
 use crate::{space::DynSpace, *};
-use crate::metta::*;
-use crate::metta::text::Tokenizer;
-use super::{grounded_op, regex};
 
 #[derive(Clone, Debug)]
 pub struct NewDasOp {}
@@ -21,7 +21,12 @@ grounded_op!(NewDasOp, "new-das");
 
 impl Grounded for NewDasOp {
     fn type_(&self) -> Atom {
-        Atom::expr([ARROW_SYMBOL, rust_type_atom::<DynSpace>(), ATOM_TYPE_SYMBOL, ATOM_TYPE_SYMBOL])
+        Atom::expr([
+            ARROW_SYMBOL,
+            rust_type_atom::<DynSpace>(),
+            ATOM_TYPE_SYMBOL,
+            ATOM_TYPE_SYMBOL,
+        ])
     }
 
     fn as_execute(&self) -> Option<&dyn CustomExecute> {
@@ -29,7 +34,12 @@ impl Grounded for NewDasOp {
     }
 }
 
-fn new_das_node(server_host: String, server_port: u16, client_host: String, client_port: u16) -> Arc<Mutex<DASNode>> {
+fn new_das_node(
+    server_host: String,
+    server_port: u16,
+    client_host: String,
+    client_port: u16,
+) -> Arc<Mutex<DASNode>> {
     let das_node = Arc::new(Mutex::new(DASNode::default()));
     let das_node_clone = Arc::clone(&das_node);
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -62,18 +72,27 @@ fn extract_host_and_port(atom: &Atom) -> Result<(String, u16), ExecError> {
             return Ok((host.to_string(), port));
         }
     }
-    Err(ExecError::from("new-das arguments must be a valid endpoint (eg. 0.0.0.0:8080)"))
+    Err(ExecError::from(
+        "new-das arguments must be a valid endpoint (eg. 0.0.0.0:8080)",
+    ))
 }
 
 impl CustomExecute for NewDasOp {
     fn execute(&self, args: &[Atom]) -> Result<Vec<Atom>, ExecError> {
         if args.len() == 2 {
-            let server = args.get(0).ok_or(ExecError::from("new-das first argument must be a valid endpoint (eg. 0.0.0.0:8080)"))?;
-            let client = args.get(1).ok_or(ExecError::from("new-das second argument must be a valid endpoint (eg. 0.0.0.0:35700)"))?;
+            let server = args.get(0).ok_or(ExecError::from(
+                "new-das first argument must be a valid endpoint (eg. 0.0.0.0:8080)",
+            ))?;
+            let client = args.get(1).ok_or(ExecError::from(
+                "new-das second argument must be a valid endpoint (eg. 0.0.0.0:35700)",
+            ))?;
             let (server_host, server_port) = extract_host_and_port(server)?;
             let (client_host, client_port) = extract_host_and_port(client)?;
             let das_node = new_das_node(server_host, server_port, client_host, client_port);
-            let space = Atom::gnd(DynSpace::new(DistributedAtomSpace::new(das_node, Some("context".to_string()))));
+            let space = Atom::gnd(DynSpace::new(DistributedAtomSpace::new(
+                das_node,
+                Some("context".to_string()),
+            )));
             Ok(vec![space])
         } else {
             Err("new-das expects 2 arguments (eg !(new-das 0.0.0.0:8080 0.0.0.0:35700)".into())
@@ -82,14 +101,18 @@ impl CustomExecute for NewDasOp {
 }
 
 pub fn register_common_tokens(tref: &mut Tokenizer) {
-    let new_das_op = Atom::gnd(NewDasOp{});
-    tref.register_token(regex(r"new-das"), move |_| { new_das_op.clone() });
+    let new_das_op = Atom::gnd(NewDasOp {});
+    tref.register_token(regex(r"new-das"), move |_| new_das_op.clone());
 }
 
-pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>, query: &Atom) -> BindingsSet {
+pub fn query_with_das(
+    space_name: Option<String>,
+    das_node: &Arc<Mutex<DASNode>>,
+    query: &Atom,
+) -> BindingsSet {
     let mut bindings_set = BindingsSet::empty();
-    // Parsing possible parameters: ((max_results) (min_importance) (query))
-    let (max_results, min_importance, query_strip) = match query {
+    // Parsing possible parameters: ((count) (importance) (query))
+    let (count, skip, importance, query_strip) = match query {
         Atom::Expression(exp_atom) => {
             let children = exp_atom.children();
             let exp_len = children.len();
@@ -100,31 +123,67 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
                 _ => return bindings_set,
             };
 
+            let mut query_strip = query.clone().to_string().replace("(", "").replace(")", "");
+            let mut count = 0;
+            let mut skip = 0;
+            let mut importance = 0;
             if is_exp {
                 if exp_len == 1 {
-                    let query_strip = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
-                    (0, 0, query_strip)
+                    query_strip = children
+                        .get(0)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
                 } else if exp_len == 2 {
-                    let max_results = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
-                    let query_strip = children.get(1).unwrap().to_string().replace("(", "").replace(")", "");
-                    (max_results.parse::<usize>().unwrap(), 0, query_strip)
+                    let count_skip = children
+                        .get(0)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
+                    let splitted: Vec<_> = count_skip.split(":").collect();
+                    count = splitted[0].parse::<usize>().unwrap();
+                    if splitted.len() == 2 {
+                        skip = splitted[1].parse::<usize>().unwrap();
+                    }
+                    query_strip = children
+                        .get(1)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
                 } else if exp_len == 3 {
-                    let max_results = children.get(0).unwrap().to_string().replace("(", "").replace(")", "");
-                    let min_importance = children.get(1).unwrap().to_string().replace("(", "").replace(")", "");
-                    let query_strip = children.get(2).unwrap().to_string().replace("(", "").replace(")", "");
-                    (max_results.parse::<usize>().unwrap(), min_importance.parse::<u32>().unwrap(), query_strip)
-                } else {
-                    (0, 0u32, "".to_string())
+                    let count_skip = children
+                        .get(0)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
+                    let splitted: Vec<_> = count_skip.split(":").collect();
+                    count = splitted[0].parse::<usize>().unwrap();
+                    if splitted.len() == 2 {
+                        skip = splitted[1].parse::<usize>().unwrap();
+                    }
+                    let importance_str = children
+                        .get(1)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
+                    importance = importance_str.parse::<u32>().unwrap();
+                    query_strip = children
+                        .get(2)
+                        .unwrap()
+                        .to_string()
+                        .replace("(", "")
+                        .replace(")", "");
                 }
-            } else {
-                let query_strip = query.clone().to_string().replace("(", "").replace(")", "");
-                (0, 0u32, query_strip)
             }
-        },
+            (count, skip, importance, query_strip)
+        }
         _ => return bindings_set,
     };
-
-    log::trace!(target: "das", "DASNode::query(params): max={:?} | min={:?} | q={:?}", max_results, min_importance, query_strip);
 
     // Getting the VARIABLES
     let mut variables: HashMap<String, String> = HashMap::new();
@@ -132,7 +191,7 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
     let splitted: Vec<&str> = cloned.split_whitespace().collect();
     for (idx, word) in splitted.clone().iter().enumerate() {
         if *word == "VARIABLE" {
-            variables.insert(splitted[idx+1].to_string(), "".to_string());
+            variables.insert(splitted[idx + 1].to_string(), "".to_string());
         }
     }
 
@@ -150,8 +209,8 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
         rt.block_on(async {
             let mut node = das_node_clone.lock().await;
             if node.is_complete() {
-                log::debug!(target: "das", "DASNode::query(): Sending request...");
-                node.query(&pattern, &context, update_attention_broker).await.unwrap();
+                log::debug!(target: "das", "DASNode::query(params): count:skip=({:?}:{:?}) | importance={:?} | q={:?}", count, skip, importance, query_strip);
+                node.query(&pattern, &context, update_attention_broker, count, skip).await.unwrap();
             }
         });
     }
@@ -172,25 +231,30 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
                     let splitted: Vec<&str> = result.split_whitespace().collect();
                     for (idx, word) in splitted.clone().iter().enumerate() {
                         if let Some(value) = variables.get_mut(&word.to_string()) {
-                            *value = splitted[idx+1].to_string();
+                            *value = splitted[idx + 1].to_string();
                         }
                     }
                     let mut bindings = Bindings::new();
                     for key in variables.keys() {
                         let value = variables.get(key).unwrap();
-                        bindings = bindings.add_var_binding(&VariableAtom::new(key), &Atom::sym(value)).unwrap();
+                        bindings = bindings
+                            .add_var_binding(&VariableAtom::new(key), &Atom::sym(value))
+                            .unwrap();
                     }
                     bindings_set.push(bindings);
-                    if max_results > 0 && bindings_set.len() >= max_results {
+                    if count > 0 && bindings_set.len() >= count {
                         break;
                     }
                 }
 
-                if n.get_status() == ServerStatus::Ready || max_results > 0 && bindings_set.len() >= max_results {
+                if n.get_status() == ServerStatus::Ready || count > 0 && bindings_set.len() >= count
+                {
                     waiting = false;
                 }
             }
-            Err(err) => { log::trace!(target: "das", "DASNode::while(locked): {:?}", err); },
+            Err(err) => {
+                log::trace!(target: "das", "DASNode::while(locked): {:?}", err);
+            }
         }
         sleep(Duration::from_millis(250));
     }
@@ -247,6 +311,10 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
 
     // Heavy query
     // !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2) (Similarity $V1 $V2))
+    // !(match &das ((3) (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2)) (Similarity $V1 $V2))
+
+    // RUST_LOG=das=debug ./target/release/metta-repl
+    // !(bind! &das (new-das (172.18.0.4:8080) (das-query-agent:35700)))
 
     log::trace!(target: "das", "DASNode::query(das): BindingsSet[len={}]: {:?}", bindings_set.len(), bindings_set);
     bindings_set
@@ -256,12 +324,11 @@ pub fn query_with_das(space_name: Option<String>, das_node: &Arc<Mutex<DASNode>>
 mod tests {
     use crate::{
         metta::runner::stdlib::{das::NewDasOp, unit_result},
-        sym,
-        CustomExecute
+        sym, CustomExecute,
     };
 
     #[test]
     fn das_op() {
-        assert_eq!(NewDasOp{}.execute(&mut vec![sym!("A")]), unit_result());
+        assert_eq!(NewDasOp {}.execute(&mut vec![sym!("A")]), unit_result());
     }
 }
