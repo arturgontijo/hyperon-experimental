@@ -1,0 +1,59 @@
+----- NO DAS -----
+!(match &self (, (Similarity $1 $2) (Inheritance $2 "plant")) (Similarity $1 $2))
+BindingsSet[len=2]: BindingsSet([{ $1 <- "snake", $2 <- "vine" }, { $1 <- "human", $2 <- "ent" }])
+BindingsSet[len=0]: BindingsSet([])
+[(Similarity "snake" "vine"), (Similarity "human" "ent")]
+
+!(include 5000)
+
+----- DAS -----
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+RUST_LOG=das=debug ./target/release/metta-repl
+
+!(bind! &das (new-das (0.0.0.0:8080) (0.0.0.0:35700)))
+!(match &das (AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2 LINK_TEMPLATE Expression 3 NODE Symbol Inheritance VARIABLE V2 NODE Symbol "plant") (Similarity $V1 $V2))
+BindingsSet[len=2]: BindingsSet([{ $V1 <- 8860480382d0ddf62623abf5c860e51d, $V2 <- a408f6dd446cdd4fa56f82e77fe6c870 }, { $V1 <- 25bdf4cba0b59adfa07dd103d033bca9, $V2 <- 1fc9300891b7a5d6583f0f85a83b9ddb }])
+[(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2) (Similarity $V1 $V2))
+BindingsSet[len=2]: BindingsSet([{ $V1 <- 8860480382d0ddf62623abf5c860e51d, $V2 <- a408f6dd446cdd4fa56f82e77fe6c870 }, { $V1 <- 25bdf4cba0b59adfa07dd103d033bca9, $V2 <- 1fc9300891b7a5d6583f0f85a83b9ddb }])
+[(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+!(match &das ((1) (LINK_TEMPLATE Expression 3 NODE Symbol Inheritance VARIABLE V2 NODE Symbol "mammal")) (Inheritance $V2))
+BindingsSet[len=1]: BindingsSet([{ $V2 <- 3225ea795289574ceee32e091ad54ef4 }])
+[(Inheritance 3225ea795289574ceee32e091ad54ef4)]
+
+!(add-atom &das (Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870))
+!(add-atom &das (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb))
+!(get-atoms &das)
+[(Similarity 8860480382d0ddf62623abf5c860e51d a408f6dd446cdd4fa56f82e77fe6c870), (Similarity 25bdf4cba0b59adfa07dd103d033bca9 1fc9300891b7a5d6583f0f85a83b9ddb)]
+
+----- Python -----
+concepts = []
+for i in range(5000):
+  concepts.append(f"(: {i+1} Concept)\n")
+
+similars = []
+for i in range(5000):
+  if i >= 5000: break
+  similars.append(f"(Similarity {i+1} {i+3})\n")
+
+with open("5000.metta", "w+") as f:
+  f.write("(: Similarity Type)\n")
+  f.write("(: Concept Type)\n")
+  f.writelines(concepts)
+  f.writelines(similars)
+
+RUST_LOG=das=trace ./target/release/metta-repl
+!(bind! &das (new-das (0.0.0.0:8080) (0.0.0.0:35700)))
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 NODE Symbol 4000) (Similarity $V1 4000))
+
+Heavy query
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2) (Similarity $V1 $V2))
+!(match &das ((3) (LINK_TEMPLATE Expression 3 NODE Symbol Similarity VARIABLE V1 VARIABLE V2)) (Similarity $V1 $V2))
+
+RUST_LOG=das=debug ./target/release/metta-repl
+!(bind! &das (new-das (172.18.0.7:8080) (das-query-agent:35700)))
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2) (EVALUATION $V1 $V2))
+
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2

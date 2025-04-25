@@ -3,6 +3,7 @@ members = [
     "lib",
     "c",
     "repl",
+    "rust-das",
 ]
 resolver = "2"
 

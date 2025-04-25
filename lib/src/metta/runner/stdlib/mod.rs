@@ -10,6 +10,7 @@ pub mod debug;
 pub mod space;
 pub mod core;
 pub mod arithmetics;
+pub mod das;
 
 use crate::*;
 use crate::space::*;
@@ -83,6 +84,8 @@ fn register_context_dependent_tokens(tref: &mut Tokenizer, tokenizer: Shared<Tok
     module::register_context_dependent_tokens(tref, tokenizer.clone(), metta);
     #[cfg(feature = "pkg_mgmt")]
     package::register_context_dependent_tokens(tref, metta);
+
+    das::register_context_dependent_tokens(tref);
 
     // &self should be updated
     // TODO: adding &self might be done not by stdlib, but by MeTTa itself.
