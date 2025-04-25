@@ -44,8 +44,8 @@ impl ServiceBus {
 		Ok(())
 	}
 
-    // TODO: Avoiding warnings...
-    pub fn service(&self) -> Vec<String> {
-        self.service_list.clone()
-    }
+	// TODO: Avoiding warnings...
+	pub fn service(&self) -> Vec<String> {
+		self.service_list.clone()
+	}
 }

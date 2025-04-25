@@ -1,11 +1,13 @@
 use std::{env, thread::sleep, time::Duration};
 
-use das::{proxy::PatternMatchingQueryProxy, service_bus_singleton::ServiceBusSingleton, types::BoxError};
+use das::{
+	proxy::PatternMatchingQueryProxy, service_bus_singleton::ServiceBusSingleton, types::BoxError,
+};
 
 const MAX_QUERY_ANSWERS: u32 = 100;
 
 fn main() -> Result<(), BoxError> {
-    env_logger::init();
+	env_logger::init();
 
 	// ./bin/query localhost:11234 localhost:35700 1 LINK_TEMPLATE ...
 	let args: Vec<String> = env::args().collect();
@@ -17,14 +19,14 @@ fn main() -> Result<(), BoxError> {
 	let client_id = &args[1];
 	let server_id = &args[2];
 	let update_attention_broker = &args[3] == "true" || &args[3] == "1";
-    let unique_assignment = true;
+	let unique_assignment = true;
 
 	let context = "";
 	let mut query = vec![];
 
 	let mut tokens_start_position = 4;
 
-	let max_query_answers = match (&args[4]).parse::<u32>() {
+	let max_query_answers = match (args[4]).parse::<u32>() {
 		Ok(value) => {
 			tokens_start_position += 1;
 			value
@@ -34,22 +36,27 @@ fn main() -> Result<(), BoxError> {
 
 	log::info!("Using max_query_answers: {}", max_query_answers);
 
-	for idx in tokens_start_position..args.len() {
-		query.push(args[idx].clone());
+	for arg in args.iter().skip(tokens_start_position) {
+		query.push(arg.clone());
 	}
 
 	ServiceBusSingleton::init(client_id.to_string(), server_id.to_string(), 64000, 64999)?;
 	let mut service_bus = ServiceBusSingleton::get_instance();
 
-	let mut proxy =
-		PatternMatchingQueryProxy::new(query, context.to_string(), unique_assignment, update_attention_broker, false)?;
+	let mut proxy = PatternMatchingQueryProxy::new(
+		query,
+		context.to_string(),
+		unique_assignment,
+		update_attention_broker,
+		false,
+	)?;
 
 	service_bus.issue_bus_command(&mut proxy)?;
 
 	let mut count = 0;
 	while !proxy.finished() {
 		if let Some(query_answer) = proxy.pop() {
-			log::info!("{}", query_answer.to_string());
+			log::info!("{}", query_answer);
 			count += 1;
 			if count == max_query_answers {
 				break;

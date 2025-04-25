@@ -91,77 +91,27 @@ pub fn query_with_das(
 ) -> Result<BindingsSet, BoxError> {
     let mut bindings_set = BindingsSet::empty();
     // Parsing possible parameters: ((count) (importance) (query))
-    let (max_query_answers, _, query_strip) = match query {
-        Atom::Expression(exp_atom) => {
-            let children = exp_atom.children();
-            let exp_len = children.len();
-
-            let is_exp = match children.get(0).unwrap() {
-                Atom::Symbol(_) => false,
-                Atom::Expression(_) => true,
-                _ => return Ok(bindings_set),
-            };
-
-            let mut query_strip = query.clone().to_string().replace("(", "").replace(")", "");
+    let (max_query_answers, tokens) = match query {
+        Atom::Expression(_) => {
+            let query_inner = query.clone().to_string().replace("(", "").replace(")", "");
+            let mut tokens: Vec<String> = query_inner.split_whitespace().map(String::from).collect();
             let mut max_query_answers = 0;
-            let mut importance = 0;
-            if is_exp {
-                if exp_len == 1 {
-                    query_strip = children
-                        .get(0)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
-                } else if exp_len == 2 {
-                    let max_query_answers_str = children
-                        .get(0)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
-                    max_query_answers = max_query_answers_str.parse::<usize>().unwrap();
-
-                    query_strip = children
-                        .get(1)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
-                } else if exp_len == 3 {
-                    let max_query_answers_str = children
-                        .get(0)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
-                    max_query_answers = max_query_answers_str.parse::<usize>().unwrap();
-
-                    let importance_str = children
-                        .get(1)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
-                    importance = importance_str.parse::<u32>().unwrap();
-
-                    query_strip = children
-                        .get(2)
-                        .unwrap()
-                        .to_string()
-                        .replace("(", "")
-                        .replace(")", "");
+            if tokens.len() > 1 {
+                max_query_answers = match tokens[0].parse::<usize>() {
+                    Ok(v) => {
+                        tokens.remove(0);
+                        v
+                    },
+                    Err(_) => 0,
                 }
             }
-            (max_query_answers, importance, query_strip)
+            (max_query_answers, tokens)
         }
         _ => return Ok(bindings_set),
     };
 
     // Getting the VARIABLES
-    let mut variables: HashMap<String, String> = HashMap::new();
-    let cloned = query_strip.clone();
-    let tokens: Vec<String> = cloned.split_whitespace().map(String::from).collect();
+    let mut variables = HashMap::new();
     for (idx, word) in tokens.clone().iter().enumerate() {
         if *word == "VARIABLE" {
             variables.insert(tokens[idx + 1].to_string(), "".to_string());
@@ -177,14 +127,12 @@ pub fn query_with_das(
     let count_only = false;
     let update_attention_broker = false;
     let unique_assignment = true;
-    let max_query_answers = if max_query_answers > 0 { max_query_answers } else { 100 };
 
     let mut proxy = PatternMatchingQueryProxy::new(tokens, context, unique_assignment, update_attention_broker, count_only)?;
 
     let mut service_bus = service_bus.lock().unwrap();
     service_bus.issue_bus_command(&mut proxy)?;
 
-    let mut count = 0;
     while !proxy.finished() {
         if let Some(query_answer) = proxy.pop() {
             log::trace!(target: "das", "{}", query_answer.to_string());
@@ -195,6 +143,7 @@ pub fn query_with_das(
                     *value = splitted[idx + 1].to_string();
                 }
             }
+
             let mut bindings = Bindings::new();
             for key in variables.keys() {
                 let value = variables.get(key).unwrap();
@@ -203,20 +152,17 @@ pub fn query_with_das(
                     .unwrap();
             }
             bindings_set.push(bindings);
+
             if max_query_answers > 0 && bindings_set.len() >= max_query_answers {
                 break;
             }
 
-            count += 1;
-            if count == max_query_answers {
-                break;
-            }
         } else {
             sleep(Duration::from_millis(100));
         }
     }
 
-    log::trace!(target: "das", "query_with_das(): BindingsSet[len={}]: {:?}", bindings_set.len(), bindings_set);
+    log::trace!(target: "das", "BindingsSet: {:?} (len={})", bindings_set, bindings_set.len());
 
     Ok(bindings_set)
 }

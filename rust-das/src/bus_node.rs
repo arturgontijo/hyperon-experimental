@@ -34,7 +34,7 @@ impl BusNode {
 
 	pub fn send_bus_command(&self, command: String, args: Vec<String>) -> Result<(), BoxError> {
 		let target_id = self.bus.get_ownership(command.clone());
-		if target_id == "" {
+		if target_id.is_empty() {
 			log::error!(target: "das", "Bus: no owner is defined for command <{}>", command);
 		} else {
 			log::debug!(target: "das", "BUS node {} is routing command {} to {}", self.node_id(), command, target_id);
@@ -57,12 +57,12 @@ impl BusNode {
 			let target_addr = format!("http://{}", target_id);
 			log::trace!(target: "das", " -> target_addr={:?}", target_addr);
 			match AtomSpaceNodeClient::connect(target_addr).await {
-				Ok(mut client) => return Ok(client.execute_message(request).await?),
+				Ok(mut client) => client.execute_message(request).await,
 				Err(err) => {
 					log::error!(target: "das", "BusNode::query(ERROR): {:?}", err);
-					return Err(Status::internal("Client failed to connect with remote!"));
+					Err(Status::internal("Client failed to connect with remote!"))
 				},
-			};
+			}
 		})?;
 
 		Ok(())

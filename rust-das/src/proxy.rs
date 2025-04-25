@@ -23,15 +23,14 @@ static FINISHED: &str = "finished"; // Notification that all query results have 
 #[derive(Default, Clone)]
 pub struct PatternMatchingQueryProxy {
 	answer_queue: Arc<Mutex<VecDeque<String>>>,
-	answer_count: u64,
+	answer_count: Arc<Mutex<u64>>,
 
 	answer_flow_finished: Arc<Mutex<bool>>,
-    count_flag: bool,
-    abort_flag: Arc<Mutex<bool>>,
+	count_flag: bool,
+	abort_flag: Arc<Mutex<bool>>,
 
 	// context: String,
 	// update_attention_broker: bool,
-
 	pub query_tokens: Vec<String>,
 
 	// BusCommandProxy
@@ -45,23 +44,27 @@ pub struct PatternMatchingQueryProxy {
 
 impl PatternMatchingQueryProxy {
 	pub fn new(
-		tokens: Vec<String>, context: String, unique_assignment: bool, update_attention_broker: bool, count_only: bool,
+		tokens: Vec<String>, context: String, unique_assignment: bool,
+		update_attention_broker: bool, count_only: bool,
 	) -> Result<Self, BoxError> {
-		let mut args =
-			vec![context.clone(), unique_assignment.to_string(), update_attention_broker.to_string(), count_only.to_string()];
+		let mut args = vec![
+			context.clone(),
+			unique_assignment.to_string(),
+			update_attention_broker.to_string(),
+			count_only.to_string(),
+		];
 		args.extend(tokens);
 
 		Ok(Self {
 			answer_queue: Arc::new(Mutex::new(VecDeque::new())),
-			answer_count: 0,
+			answer_count: Arc::new(Mutex::new(0)),
 
 			answer_flow_finished: Arc::new(Mutex::new(false)),
-            count_flag: count_only,
-            abort_flag: Arc::new(Mutex::new(false)),
+			count_flag: count_only,
+			abort_flag: Arc::new(Mutex::new(false)),
 
 			// context,
 			// update_attention_broker,
-
 			query_tokens: vec![],
 
 			command: PATTERN_MATCHING_QUERY.to_string(),
@@ -74,13 +77,13 @@ impl PatternMatchingQueryProxy {
 	pub fn finished(&self) -> bool {
 		let aq = self.answer_queue.lock().unwrap();
 		let answer_flow_finished = self.answer_flow_finished.lock().unwrap();
-        let abort_flag = self.abort_flag.lock().unwrap();
-		*abort_flag || (*answer_flow_finished && (self.count_flag || (aq.len() == 0)))
+		let abort_flag = self.abort_flag.lock().unwrap();
+		*abort_flag || (*answer_flow_finished && (self.count_flag || aq.is_empty()))
 	}
 
 	pub fn pop(&mut self) -> Option<String> {
 		let mut aq = self.answer_queue.lock().unwrap();
-        let abort_flag = self.abort_flag.lock().unwrap();
+		let abort_flag = self.abort_flag.lock().unwrap();
 		if self.count_flag {
 			log::error!(target: "das", "Can't pop QueryAnswers from count_only queries.");
 			return None;
@@ -92,31 +95,28 @@ impl PatternMatchingQueryProxy {
 	}
 
 	pub fn get_count(&self) -> u64 {
-		self.answer_count
+		let answer_count = self.answer_count.lock().unwrap();
+		*answer_count
 	}
 
 	pub fn abort() {
 		todo!()
 	}
 
-	pub fn setup_proxy_node(
-		&mut self, client_id: Option<String>, server_id: Option<String>,
-	) {
+	pub fn setup_proxy_node(&mut self, client_id: Option<String>, server_id: Option<String>) {
 		if self.proxy_port == 0 {
 			panic!("Proxy node can't be set up");
+		} else if let Some(client_id) = client_id {
+			// This proxy is running in the processor
+			let server_id = server_id.unwrap_or_default();
+			self.proxy_node = ProxyNode::new(self, client_id, server_id.clone());
+			self.proxy_node.peer_id = server_id;
 		} else {
-			if let Some(client_id) = client_id {
-                // This proxy is running in the processor
-                let server_id = server_id.unwrap_or_default();
-				self.proxy_node = ProxyNode::new(self, client_id, server_id.clone());
-				self.proxy_node.peer_id = server_id;
-			} else {
-				// This proxy is running in the requestor
-				let id = self.requestor_id.clone();
-				let requestor_host = id.split(":").collect::<Vec<_>>()[0];
-				let requestor_id = requestor_host.to_string() + ":" + &self.proxy_port.to_string();
-				self.proxy_node = ProxyNode::new(self, requestor_id, "".to_string());
-			}
+			// This proxy is running in the requestor
+			let id = self.requestor_id.clone();
+			let requestor_host = id.split(":").collect::<Vec<_>>()[0];
+			let requestor_id = requestor_host.to_string() + ":" + &self.proxy_port.to_string();
+			self.proxy_node = ProxyNode::new(self, requestor_id, "".to_string());
 		}
 	}
 }
@@ -153,21 +153,21 @@ impl ProxyNode {
 		self.node_id.clone()
 	}
 
-    pub fn server_id(&self) -> String {
+	pub fn server_id(&self) -> String {
 		self.server_id.clone()
 	}
 }
 
 impl Drop for ProxyNode {
-    fn drop(&mut self) {
+	fn drop(&mut self) {
 		// Releasing Runtime
 		let mut runtime_lock = self.runtime.write().unwrap();
 		if let Some(runtime) = runtime_lock.take() {
-			thread::spawn(move || { drop(runtime) });
+			thread::spawn(move || drop(runtime));
 		}
 
 		// Returning Port
-		if self.node_id != "" {
+		if !self.node_id.is_empty() {
 			log::trace!(target: "das", "Dropping ProxyNode with data: {}", self.node_id);
 			let splitted = self.node_id.split(":").collect::<Vec<_>>();
 			if splitted.len() == 2 {
@@ -177,7 +177,7 @@ impl Drop for ProxyNode {
 				log::error!(target: "das", "Failed to parse and return port from: {}", self.node_id);
 			}
 		}
-    }
+	}
 }
 
 #[derive(Default, Clone)]
@@ -192,7 +192,7 @@ impl DASNode {
 	}
 
 	fn process_message(&self, msg: MessageData) {
-		log::trace!(
+		log::debug!(
 			target: "das",
 			"ProxyNode::process_message()[{}]: MessageData -> len={:?}",
 			self.node_id,
@@ -209,19 +209,21 @@ impl DASNode {
 		};
 
 		let mut aq = self.proxy.answer_queue.lock().unwrap();
+		let mut answer_count = self.proxy.answer_count.lock().unwrap();
 		let mut answer_flow_finished = self.proxy.answer_flow_finished.lock().unwrap();
-        let mut abort_flag = self.proxy.abort_flag.lock().unwrap();
+		let mut abort_flag = self.proxy.abort_flag.lock().unwrap();
 		for arg in args {
 			if arg == FINISHED {
 				*answer_flow_finished = true;
 				break;
 			} else if arg == ABORT {
-                *abort_flag = true;
-                break;
-            } else if arg == ANSWER_BUNDLE || arg == COUNT {
+				*abort_flag = true;
+				break;
+			} else if arg == ANSWER_BUNDLE || arg == COUNT {
 				continue;
 			}
-            aq.push_back(arg);
+			*answer_count += 1;
+			aq.push_back(arg);
 		}
 	}
 }
