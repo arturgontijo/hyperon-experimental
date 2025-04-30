@@ -90,21 +90,41 @@ pub fn query_with_das(
     query: &Atom,
 ) -> Result<BindingsSet, BoxError> {
     let mut bindings_set = BindingsSet::empty();
-    // Parsing possible parameters: ((count) (importance) (query))
+    // Parsing possible parameters: ((max_query_answers) (query))
     let (max_query_answers, tokens) = match query {
-        Atom::Expression(_) => {
-            let query_inner = query.clone().to_string().replace("(", "").replace(")", "");
-            let mut tokens: Vec<String> = query_inner.split_whitespace().map(String::from).collect();
+        Atom::Expression(exp_atom) => {
+            let children = exp_atom.children();
+
+            let is_exp = match children.get(0).unwrap() {
+                Atom::Symbol(_) => false,
+                Atom::Expression(_) => true,
+                _ => return Ok(bindings_set),
+            };
+
+            let mut query_inner = query.clone().to_string();
             let mut max_query_answers = 0;
-            if tokens.len() > 1 {
-                max_query_answers = match tokens[0].parse::<usize>() {
-                    Ok(v) => {
-                        tokens.remove(0);
-                        v
-                    },
+
+            // We have ((max_query_answers) (query))
+            if is_exp && children.len() >= 2 {
+                let first_exp = children
+                    .get(0)
+                    .unwrap()
+                    .to_string()
+                    .replace("(", "")
+                    .replace(")", "");
+                max_query_answers = match first_exp.parse::<usize>() {
+                    Ok(v) => v,
                     Err(_) => 0,
-                }
+                };
+
+                query_inner = children
+                    .get(1)
+                    .unwrap()
+                    .to_string();
             }
+
+            let tokens: Vec<String> = query_inner.split_whitespace().map(String::from).collect();
+
             (max_query_answers, tokens)
         }
         _ => return Ok(bindings_set),
@@ -112,9 +132,9 @@ pub fn query_with_das(
 
     // Getting the VARIABLES
     let mut variables = HashMap::new();
-    for (idx, word) in tokens.clone().iter().enumerate() {
-        if *word == "VARIABLE" {
-            variables.insert(tokens[idx + 1].to_string(), "".to_string());
+    for word in &tokens {
+        if word.starts_with("$") {
+            variables.insert(word.replace("$", "").replace(")", ""), "".to_string());
         }
     }
 
@@ -128,7 +148,7 @@ pub fn query_with_das(
     let update_attention_broker = false;
     let unique_assignment = true;
 
-    let mut proxy = PatternMatchingQueryProxy::new(tokens, context, unique_assignment, update_attention_broker, count_only)?;
+    let mut proxy = PatternMatchingQueryProxy::new(tokens.join(" "), context, unique_assignment, update_attention_broker, count_only)?;
 
     let mut service_bus = service_bus.lock().unwrap();
     service_bus.issue_bus_command(&mut proxy)?;
@@ -145,8 +165,7 @@ pub fn query_with_das(
             }
 
             let mut bindings = Bindings::new();
-            for key in variables.keys() {
-                let value = variables.get(key).unwrap();
+            for (key, value) in &variables {
                 bindings = bindings
                     .add_var_binding(&VariableAtom::new(key), &Atom::sym(value))
                     .unwrap();

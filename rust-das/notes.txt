@@ -57,3 +57,153 @@ RUST_LOG=das=debug ./target/release/metta-repl
 !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2) (EVALUATION $V1 $V2))
 
 ./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C
+
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2) (EVALUATION $V1 $V2))
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C) (EVALUATION $P $C))
+
+LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE V1 VARIABLE V2 ->    f25e96bc37374685cc0b783e9f19c704 (79,482)
+
+
+-----
+
+LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE VARIABLE C VARIABLE P
+
+LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol '"is_reptile"' VARIABLE C
+
+!(match &das (AND 2 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE P VARIABLE C LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE NODE Symbol '"is_reptile"') (Test $V1 $V2))
+
+Edgar:
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE C VARIABLE P) (Test $C $P))
+
+Andre:
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol '"is_reptile"' VARIABLE C) (Test $C))
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE sentence1 LINK Expression 2 NODE Symbol Word NODE Symbol '"aaa"') (Test $sentence1))
+
+Artur:
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE P NODE Symbol '"earthworm"') (Test $P))
+!(match &das (LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C) (Test $C))
+
+
+
+(EVALUATION (PREDICATE public.feature) (CONCEPT (public.feature "67435306")))
+(EVALUATION (PREDICATE (public.feature public.feature.name "Taf8[HMC04661]")) (CONCEPT (public.feature "67435306")))
+
+(EVALUATION (PREDICATE *) (CONCEPT (public.feature "67435306")))
+(EVALUATION (PREDICATE (public.feature public.feature.name "Taf8[HMC04661]")) (CONCEPT (public.feature *)))
+
+
+Works:
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol public.feature VARIABLE C) (Test $C))
+
+(EVALUATION * (CONCEPT (public.feature "67435306")))
+  !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE P LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435306") (Test $P))
+  ./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION VARIABLE P LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol '"67435306"'
+
+(EVALUATION (PREDICATE *) (CONCEPT (public.feature "67435306")))
+  !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435306") (Test $P))
+
+(EVALUATION (PREDICATE (public.feature public.feature.name "Taf8[HMC04661]")) (CONCEPT *))
+  !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.feature NODE Symbol public.feature.name NODE Symbol "Taf8[HMC04661]" VARIABLE C) (Test $C))
+
+(EVALUATION (PREDICATE (public.feature public.feature.name "Taf8[HMC04661]")) (CONCEPT (public.feature *)))
+  !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.feature NODE Symbol public.feature.name NODE Symbol "Taf8[HMC04661]" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.feature VARIABLE C) (Test $C))
+  !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.feature NODE Symbol public.feature.name NODE Symbol "Taf8[HMC04661]" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C) (Test $C))
+
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435306") (Test $P))
+
+
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol '"67435306"'
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.feature NODE Symbol public.feature.name NODE Symbol \"Taf8[HMC04661]\" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.feature VARIABLE C
+
+
+
+
+LINK_TEMPLATE Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 3 
+      NODE Symbol public.feature 
+      NODE Symbol public.feature.name 
+      NODE Symbol "Taf8[HMC04661]" 
+  LINK_TEMPLATE Expression 2 
+    NODE Symbol CONCEPT 
+    VARIABLE C
+
+
+LINK_TEMPLATE Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 3 
+      NODE Symbol public.feature 
+      NODE Symbol public.feature.name 
+      NODE Symbol "Taf8[HMC04661]" 
+  LINK_TEMPLATE Expression 2 
+    NODE Symbol CONCEPT 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol public.feature 
+      VARIABLE C
+
+----
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C) (EVALUATION $P $C))
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE C
+
+
+AND 2 \
+    LINK_TEMPLATE Expression 3 \
+      NODE Symbol Contains \
+      VARIABLE sentence1 \
+      LINK Expression 2 \
+        NODE Symbol Word \
+        NODE Symbol '"bbb"' \
+    LINK_TEMPLATE Expression 3 \
+      NODE Symbol Contains \
+      VARIABLE sentence2 \
+      LINK Expression 2 \
+        NODE Symbol Word \
+        NODE Symbol '"aaa"'
+
+
+AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S1 LINK Expression 2 NODE Symbol Word NODE Symbol '"bbb"' LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S2 LINK Expression 2 NODE Symbol Word NODE Symbol '"aaa"'
+
+  Working:
+!(match &das (AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S1 LINK Expression 2 NODE Symbol Word NODE Symbol "bbb" LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S2 LINK Expression 2 NODE Symbol Word NODE Symbol "aaa") (Contains $S1 $S2))
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S1 LINK Expression 2 NODE Symbol Word NODE Symbol '"bbb"' LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S2 LINK Expression 2 NODE Symbol Word NODE Symbol '"aaa"'
+
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Sentence VARIABLE S VARIABLE W) (Contains $S $W))
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Sentence VARIABLE S LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W) (Contains $S $W))
+
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 3 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Sentence VARIABLE S LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W
+
+!(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S VARIABLE W) (Contains $S $W))
+
+!(match &das (LINK_TEMPLATE Expression 2 NODE Symbol Sentence VARIABLE S) (Sentence $S))
+!(match &das (LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W) (Word $W))
+
+
+!(match &das (LINK_TEMPLATE Expression 2 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W) (Word $W))
+./bin/query 0.0.0.0:8080 das-query-agent:35700 1 50 LINK_TEMPLATE Expression 2 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W
+
+
+
+
+!(match &das (LINK_TEMPLATE Expression 2 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol public.feature VARIABLE F) (public.feature $F))
+
+
+
+69,012    !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S VARIABLE W) (Contains $S $W))
+          !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol Contains LINK_TEMPLATE Expression 2 NODE Symbol Sentence VARIABLE S LINK_TEMPLATE Expression 2 NODE Symbol Word VARIABLE W) (Contains $S $W))
+
+
+
+
+!(match &das (EVALUATION $P $C) (EVALUATION $P $C))
+
+
+
