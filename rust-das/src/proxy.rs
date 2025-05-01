@@ -26,7 +26,7 @@ pub struct PatternMatchingQueryProxy {
 	answer_queue: Arc<Mutex<VecDeque<String>>>,
 	answer_count: Arc<Mutex<u64>>,
 
-	answer_flow_finished: Arc<Mutex<bool>>,
+	pub answer_flow_finished: Arc<Mutex<bool>>,
 	count_flag: bool,
 	abort_flag: Arc<Mutex<bool>>,
 
@@ -139,13 +139,13 @@ pub struct ProxyNode {
 
 impl ProxyNode {
 	pub fn new(proxy: &mut PatternMatchingQueryProxy, node_id: String, server_id: String) -> Self {
-		let das_node = DASNode::new(node_id.clone(), Arc::new(proxy.clone()));
+		let star_node = StarNode::new(node_id.clone(), Arc::new(proxy.clone()));
 
 		let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
 
 		// Start gRPC server (runs indefinitely)
-		let node_clone = das_node.clone();
-		runtime.as_ref().spawn(async move {
+		let node_clone = star_node.clone();
+		runtime.spawn(async move {
 			node_clone.start_server().await.unwrap();
 		});
 
@@ -189,12 +189,12 @@ impl Drop for ProxyNode {
 }
 
 #[derive(Default, Clone)]
-pub struct DASNode {
+pub struct StarNode {
 	node_id: String,
 	proxy: Arc<PatternMatchingQueryProxy>,
 }
 
-impl DASNode {
+impl StarNode {
 	pub fn new(node_id: String, proxy: Arc<PatternMatchingQueryProxy>) -> Self {
 		Self { node_id, proxy }
 	}
@@ -202,7 +202,7 @@ impl DASNode {
 	fn process_message(&self, msg: MessageData) {
 		log::debug!(
 			target: "das",
-			"ProxyNode::process_message()[{}]: MessageData -> len={:?}",
+			"StarNode::process_message()[{}]: MessageData -> len={:?}",
 			self.node_id,
 			msg.args.len()
 		);
@@ -237,11 +237,11 @@ impl DASNode {
 }
 
 #[tonic::async_trait]
-impl AtomSpaceNode for DASNode {
+impl AtomSpaceNode for StarNode {
 	async fn execute_message(
 		&self, request: Request<MessageData>,
 	) -> Result<Response<Empty>, Status> {
-		log::trace!(target: "das", "DasNode::execute_message(): Got MessageData {:?}", request);
+		log::trace!(target: "das", "StarNode::execute_message(): Got MessageData {:?}", request);
 		self.process_message(request.into_inner());
 		Ok(Response::new(Empty {}))
 	}
@@ -257,10 +257,10 @@ pub trait GrpcServer {
 }
 
 #[tonic::async_trait]
-impl GrpcServer for DASNode {
+impl GrpcServer for StarNode {
 	async fn start_server(self) -> Result<(), BoxError> {
 		let addr = self.node_id.parse()?;
-		log::debug!(target: "das", "DasNode::start_server(): Inside gRPC server thread at {:?}", addr);
+		log::debug!(target: "das", "StarNode::start_server(): Inside gRPC server thread at {:?}", addr);
 		Server::builder().add_service(AtomSpaceNodeServer::new(self)).serve(addr).await.unwrap();
 		Ok(())
 	}

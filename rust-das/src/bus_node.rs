@@ -36,11 +36,11 @@ impl BusNode {
 		let target_id = self.bus.get_ownership(command.clone());
 		if target_id.is_empty() {
 			log::error!(target: "das", "Bus: no owner is defined for command <{}>", command);
+			Err("Bus: no owner is defined for command".into())
 		} else {
 			log::debug!(target: "das", "BUS node {} is routing command {} to {}", self.node_id(), command, target_id);
-			self.send(command, args, target_id.to_string())?;
+			self.send(command, args, target_id.to_string())
 		}
-		Ok(())
 	}
 
 	fn send(&self, command: String, args: Vec<String>, target_id: String) -> Result<(), BoxError> {
@@ -55,7 +55,7 @@ impl BusNode {
 		let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 		runtime.block_on(async move {
 			let target_addr = format!("http://{}", target_id);
-			log::trace!(target: "das", " -> target_addr={:?}", target_addr);
+			log::trace!(target: "das", "BusNode::query(target_addr): {}", target_addr);
 			match AtomSpaceNodeClient::connect(target_addr).await {
 				Ok(mut client) => client.execute_message(request).await,
 				Err(err) => {

@@ -39,7 +39,13 @@ impl ServiceBus {
 			for arg in &proxy.args {
 				args.push(arg.clone());
 			}
-			self.bus_node.send_bus_command(proxy.command.clone(), args)?;
+			match self.bus_node.send_bus_command(proxy.command.clone(), args) {
+				Ok(_) => (),
+				Err(_) => {
+					let mut answer_flow_finished = proxy.answer_flow_finished.lock().unwrap();
+					*answer_flow_finished = true;
+				},
+			}
 		}
 		Ok(())
 	}
