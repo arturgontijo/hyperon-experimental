@@ -128,15 +128,28 @@ pub fn query_with_das(
     }
     let mut variables = HashMap::new();
     for tokens in &multi_tokens {
-        for word in tokens {
+        for (idx, word) in tokens.clone().iter().enumerate() {
+            let _word = word.replace("(", "").replace(")", "");
             if word.starts_with("$") {
-                variables.insert(word.replace("$", "").replace(")", ""), "".to_string());
+                variables.insert(_word.replace("$", ""), "".to_string());
+            } else if _word == "VARIABLE" {
+                let var_name = tokens[idx + 1].replace("(", "").replace(")", "");
+                variables.insert(var_name, "".to_string());
             }
         }
-        // Translate MeTTa into LINK_TEMPLATE
-        let translation: Vec<String> = translate(&tokens.join(" ")).split_whitespace().map(String::from).collect();
-        log::debug!(target: "das", "LT: <{}>", translation.join(" "));
-        query.extend(translation);
+        let first = tokens[0].replace("(", "");
+        match first.trim() {
+            "LINK_TEMPLATE" | "AND" | "OR" => {
+                let tokens = tokens.join(" ").replace("(", "").replace(")", "");
+                query.extend(tokens.split_whitespace().map(String::from).collect::<Vec<String>>())
+            },
+            _ => {
+                // Translate MeTTa to LINK_TEMPLATE
+                let translation: Vec<String> = translate(&tokens.join(" ")).split_whitespace().map(String::from).collect();
+                log::debug!(target: "das", "LT: <{}>", translation.join(" "));
+                query.extend(translation);
+            },
+        }
     }
 
     log::debug!(target: "das", "Query: <{}>", query.join(" "));
