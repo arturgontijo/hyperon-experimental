@@ -202,6 +202,8 @@ AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S1 LINK Expressio
 
 
 
+!(match &das (, (Similarity $X $Y) (Inheritance $Y "plant")) (Found $X $Y))
+!(match &das (, (Similarity $X $Y) (Inheritance $Y "plant") (Invalid "test" $Z)) (Found $X $Y $Z))
 
 !(match &das (EVALUATION $P $C) (EVALUATION $P $C))
 

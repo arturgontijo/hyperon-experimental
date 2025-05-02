@@ -44,7 +44,7 @@ fn main() -> Result<(), BoxError> {
 	let mut service_bus = ServiceBusSingleton::get_instance();
 
 	let mut proxy = PatternMatchingQueryProxy::new(
-		query.join(" "),
+		query,
 		context.to_string(),
 		unique_assignment,
 		update_attention_broker,

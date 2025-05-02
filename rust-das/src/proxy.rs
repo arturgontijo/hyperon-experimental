@@ -13,7 +13,6 @@ mod das_proto {
 }
 
 use crate::port_pool::PortPool;
-use crate::translator::translate;
 use crate::{bus::PATTERN_MATCHING_QUERY, types::BoxError};
 
 static ABORT: &str = "abort"; // Abort current query
@@ -45,8 +44,8 @@ pub struct PatternMatchingQueryProxy {
 
 impl PatternMatchingQueryProxy {
 	pub fn new(
-		tokens: String, context: String, unique_assignment: bool, update_attention_broker: bool,
-		count_only: bool,
+		tokens: Vec<String>, context: String, unique_assignment: bool,
+		update_attention_broker: bool, count_only: bool,
 	) -> Result<Self, BoxError> {
 		let mut args = vec![
 			context.clone(),
@@ -54,14 +53,7 @@ impl PatternMatchingQueryProxy {
 			update_attention_broker.to_string(),
 			count_only.to_string(),
 		];
-
-		// Translate MeTTa into LINK_TEMPLATE
-		let translation: Vec<String> =
-			translate(&tokens).split_whitespace().map(String::from).collect();
-
-		log::debug!(target: "das", "LT: <{}>", translation.join(" "));
-
-		args.extend(translation);
+		args.extend(tokens);
 
 		Ok(Self {
 			answer_queue: Arc::new(Mutex::new(VecDeque::new())),

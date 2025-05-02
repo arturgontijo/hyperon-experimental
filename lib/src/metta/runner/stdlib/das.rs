@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
 use das::proxy::PatternMatchingQueryProxy;
+use das::translator::translate;
 use das::types::BoxError;
 
 use das::service_bus::ServiceBus;
@@ -91,52 +92,54 @@ pub fn query_with_das(
 ) -> Result<BindingsSet, BoxError> {
     let mut bindings_set = BindingsSet::empty();
     // Parsing possible parameters: ((max_query_answers) (query))
-    let (max_query_answers, tokens) = match query {
+    let (max_query_answers, multi_tokens) = match query {
         Atom::Expression(exp_atom) => {
             let children = exp_atom.children();
 
             let is_exp = match children.get(0).unwrap() {
-                Atom::Symbol(_) => false,
+                Atom::Symbol(s) => if s.name() == "," { true } else { false },
                 Atom::Expression(_) => true,
                 _ => return Ok(bindings_set),
             };
 
-            let mut query_inner = query.clone().to_string();
-            let mut max_query_answers = 0;
+            let max_query_answers = 0;
 
-            // We have ((max_query_answers) (query))
-            if is_exp && children.len() >= 2 {
-                let first_exp = children
-                    .get(0)
-                    .unwrap()
-                    .to_string()
-                    .replace("(", "")
-                    .replace(")", "");
-                max_query_answers = match first_exp.parse::<usize>() {
-                    Ok(v) => v,
-                    Err(_) => 0,
-                };
-
-                query_inner = children
-                    .get(1)
-                    .unwrap()
-                    .to_string();
+            let mut multi_tokens: Vec<Vec<String>> = vec![];
+            if is_exp {
+                for atom in children.iter() {
+                    if atom.to_string() == "," {
+                        continue;
+                    }
+                    multi_tokens.push(atom.to_string().split_whitespace().map(String::from).collect());
+                }
+            } else {
+                multi_tokens.push(query.to_string().split_whitespace().map(String::from).collect());
             }
 
-            let tokens: Vec<String> = query_inner.split_whitespace().map(String::from).collect();
-
-            (max_query_answers, tokens)
+            (max_query_answers, multi_tokens)
         }
         _ => return Ok(bindings_set),
     };
 
-    // Getting the VARIABLES
-    let mut variables = HashMap::new();
-    for word in &tokens {
-        if word.starts_with("$") {
-            variables.insert(word.replace("$", "").replace(")", ""), "".to_string());
-        }
+    // Translating to LT and setting the VARIABLES
+    let mut query = vec![];
+    if multi_tokens.len() > 1 {
+        query.extend(["AND".to_string(), format!("{}", multi_tokens.len())]);
     }
+    let mut variables = HashMap::new();
+    for tokens in &multi_tokens {
+        for word in tokens {
+            if word.starts_with("$") {
+                variables.insert(word.replace("$", "").replace(")", ""), "".to_string());
+            }
+        }
+        // Translate MeTTa into LINK_TEMPLATE
+        let translation: Vec<String> = translate(&tokens.join(" ")).split_whitespace().map(String::from).collect();
+        log::debug!(target: "das", "LT: <{}>", translation.join(" "));
+        query.extend(translation);
+    }
+
+    log::debug!(target: "das", "Query: <{}>", query.join(" "));
 
     // Query's params:
     let context = match space_name {
@@ -148,7 +151,7 @@ pub fn query_with_das(
     let update_attention_broker = false;
     let unique_assignment = true;
 
-    let mut proxy = PatternMatchingQueryProxy::new(tokens.join(" "), context, unique_assignment, update_attention_broker, count_only)?;
+    let mut proxy = PatternMatchingQueryProxy::new(query, context, unique_assignment, update_attention_broker, count_only)?;
 
     let mut service_bus = service_bus.lock().unwrap();
     service_bus.issue_bus_command(&mut proxy)?;
