@@ -208,4 +208,48 @@ AND 2 LINK_TEMPLATE Expression 3 NODE Symbol Contains VARIABLE S1 LINK Expressio
 !(match &das (EVALUATION $P $C) (EVALUATION $P $C))
 
 
+--- OR
 
+!(append
+  !(match &self
+    (, (likes $x $y)
+       (age $x $age))
+    ($x $y $age))
+  !(match &self
+    (, (knows $x $y)
+       (age $x $age))
+    ($x $y $age))
+)
+
+!(match &das (OR 2 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK Expression 2 NODE Symbol CONCEPT NODE Symbol "human" LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE Expression 2 NODE Symbol PREDICATE VARIABLE P LINK Expression 2 NODE Symbol CONCEPT NODE Symbol "chimp") (Predicate $P))
+
+!(append !(match &das (EVALUATION (PREDICATE $P) (CONCEPT "human")) (Predicate Human $P)) !(match &das (EVALUATION (PREDICATE $P) (CONCEPT "chimp")) (Predicate Chimp $P)))
+
+!(match &das (, (EVALUATION (PREDICATE "is_reptile") (CONCEPT $R)) (EVALUATION (PREDICATE "four_legs") (CONCEPT $R))) (Four Legs Reptile $R))
+!(match &das (AND 2 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol "is_reptile" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE R LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol "four_legs" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE R) (Four Legs Reptile $R))
+
+!(append !(match &das (EVALUATION (PREDICATE "is_reptile") (CONCEPT $R)) (is_reptile $R)) !(match &das (EVALUATION (PREDICATE "four_legs") (CONCEPT $FL)) (four_legs $FL)))
+!(match &das (OR 2 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol "is_reptile" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE R LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE NODE Symbol "four_legs" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT VARIABLE R) (Four Legs Reptile $R))
+
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm $ID))) (cvterm_id $ID))
+
+
+
+AND 2 
+  LINK_TEMPLATE Expression 3 
+    NODE Symbol EVALUATION 
+    LINK Expression 2 
+      NODE Symbol PREDICATE 
+      NODE Symbol "is_reptile" 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol CONCEPT 
+      VARIABLE R 
+  LINK_TEMPLATE Expression 3 
+    NODE Symbol EVALUATION 
+    LINK Expression 2 
+      NODE Symbol PREDICATE 
+      NODE Symbol "four_legs" 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol CONCEPT 
+      VARIABLE R

@@ -69,24 +69,39 @@ fn tokenize(input: &str) -> Vec<Token> {
 	let mut tokens = Vec::new();
 	let mut chars = input.chars().peekable();
 	let mut current = String::new();
+	let mut in_quotes = false;
 
 	while let Some(c) = chars.next() {
 		match c {
-			'(' => {
+			'"' if !in_quotes => {
+				if !current.is_empty() {
+					tokens.push(classify_token(&current));
+					current.clear();
+				}
+				in_quotes = true;
+				current.push(c);
+			},
+			'"' if in_quotes => {
+				current.push(c);
+				tokens.push(Token::Symbol(current.clone()));
+				current.clear();
+				in_quotes = false;
+			},
+			'(' if !in_quotes => {
 				if !current.is_empty() {
 					tokens.push(classify_token(&current));
 					current.clear();
 				}
 				tokens.push(Token::OpenParen);
 			},
-			')' => {
+			')' if !in_quotes => {
 				if !current.is_empty() {
 					tokens.push(classify_token(&current));
 					current.clear();
 				}
 				tokens.push(Token::CloseParen);
 			},
-			' ' | '\n' | '\t' => {
+			' ' | '\n' | '\t' if !in_quotes => {
 				if !current.is_empty() {
 					tokens.push(classify_token(&current));
 					current.clear();
@@ -155,4 +170,52 @@ pub fn translate(input: &str) -> String {
 	} else {
 		"Parse error".to_string()
 	}
+}
+
+pub fn split_ignore_quoted(s: &str) -> Vec<String> {
+	let mut result = Vec::new();
+	let mut chars = s.chars().peekable();
+	let mut current = String::new();
+	let mut in_single_quotes = false;
+	let mut in_double_quotes = false;
+
+	while let Some(c) = chars.next() {
+		match c {
+			'\'' if !in_double_quotes && !in_single_quotes => {
+				in_single_quotes = true;
+				current.push(c);
+			},
+			'\'' if !in_double_quotes && in_single_quotes => {
+				in_single_quotes = false;
+				current.push(c);
+				result.push(current.clone());
+				current.clear();
+			},
+			'"' if !in_single_quotes && !in_double_quotes => {
+				in_double_quotes = true;
+				current.push(c);
+			},
+			'"' if !in_single_quotes && in_double_quotes => {
+				in_double_quotes = false;
+				current.push(c);
+				result.push(current.clone());
+				current.clear();
+			},
+			c if (c == ' ' || c == '\t' || c == '\n') && !in_single_quotes && !in_double_quotes => {
+				if !current.is_empty() {
+					result.push(current.clone());
+					current.clear();
+				}
+			},
+			_ => {
+				current.push(c);
+			},
+		}
+	}
+
+	if !current.is_empty() {
+		result.push(current);
+	}
+
+	result
 }

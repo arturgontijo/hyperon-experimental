@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
 use das::proxy::PatternMatchingQueryProxy;
-use das::translator::translate;
+use das::helpers::{split_ignore_quoted, translate};
 use das::types::BoxError;
 
 use das::service_bus::ServiceBus;
@@ -141,11 +141,11 @@ pub fn query_with_das(
         match first.trim() {
             "LINK_TEMPLATE" | "AND" | "OR" => {
                 let tokens = tokens.join(" ").replace("(", "").replace(")", "");
-                query.extend(tokens.split_whitespace().map(String::from).collect::<Vec<String>>())
+                query.extend(split_ignore_quoted(&tokens))
             },
             _ => {
                 // Translate MeTTa to LINK_TEMPLATE
-                let translation: Vec<String> = translate(&tokens.join(" ")).split_whitespace().map(String::from).collect();
+                let translation = split_ignore_quoted(&translate(&tokens.join(" ")));
                 log::debug!(target: "das", "LT: <{}>", translation.join(" "));
                 query.extend(translation);
             },
