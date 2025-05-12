@@ -130,7 +130,7 @@ pub fn query_with_das(
     for tokens in &multi_tokens {
         for (idx, word) in tokens.clone().iter().enumerate() {
             let _word = word.replace("(", "").replace(")", "");
-            if word.starts_with("$") {
+            if _word.starts_with("$") {
                 variables.insert(_word.replace("$", ""), "".to_string());
             } else if _word == "VARIABLE" {
                 let var_name = tokens[idx + 1].replace("(", "").replace(")", "");
@@ -139,7 +139,7 @@ pub fn query_with_das(
         }
         let first = tokens[0].replace("(", "");
         match first.trim() {
-            "LINK_TEMPLATE" | "AND" | "OR" => {
+            "LINK_TEMPLATE" | "LINK_TEMPLATE2" | "AND" | "OR" => {
                 let tokens = tokens.join(" ").replace("(", "").replace(")", "");
                 query.extend(split_ignore_quoted(&tokens))
             },

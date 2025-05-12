@@ -129,38 +129,98 @@ fn classify_token(s: &str) -> Token {
 	}
 }
 
+// Determine if an expression needs LINK_TEMPLATE (only for VARIABLE without inner LINK_TEMPLATE or LINK_TEMPLATE2)
+fn needs_link_template(nodes: &[Node]) -> bool {
+	let has_variable = nodes.iter().any(|node| matches!(node, Node::Variable(_)));
+	let has_inner_link_template = nodes.iter().any(|node| {
+		if let Node::Expression(sub_nodes) = node {
+			// Check if sub-expression is LINK_TEMPLATE or LINK_TEMPLATE2
+			needs_link_template(sub_nodes)
+				|| sub_nodes.iter().any(|n| matches!(n, Node::Variable(_)))
+		} else {
+			false
+		}
+	});
+	has_variable && !has_inner_link_template
+}
+
 // Generate the output string from the AST as a single line
 fn generate_output(node: &Node) -> String {
+	match node {
+		Node::Expression(nodes) => {
+			let count = nodes.len();
+			let mut parts = Vec::new();
+			// Check for inner LINK_TEMPLATE or LINK_TEMPLATE2
+			let has_inner_link_template = nodes.iter().any(|node| {
+				if let Node::Expression(sub_nodes) = node {
+					needs_link_template(sub_nodes)
+						|| sub_nodes.iter().any(|n| {
+							if let Node::Expression(inner_nodes) = n {
+								needs_link_template(inner_nodes)
+									|| inner_nodes.iter().any(|m| matches!(m, Node::Variable(_)))
+							} else {
+								false
+							}
+						})
+				} else {
+					false
+				}
+			});
+			// Top-level logic: LINK_TEMPLATE if only VARIABLE and no inner LINK_TEMPLATE/LINK_TEMPLATE2, else LINK_TEMPLATE2
+			let link_type = if needs_link_template(nodes) && !has_inner_link_template {
+				"LINK_TEMPLATE"
+			} else {
+				"LINK_TEMPLATE2"
+			};
+			parts.push(format!("{} Expression {}", link_type, count));
+			for node in nodes {
+				parts.push(generate_output_inner(node));
+			}
+			parts.join(" ")
+		},
+		_ => generate_output_inner(node), // Non-expression nodes use inner logic
+	}
+}
+
+// Helper function to generate output for nested nodes
+fn generate_output_inner(node: &Node) -> String {
 	match node {
 		Node::Symbol(s) => format!("NODE Symbol {}", s),
 		Node::Variable(v) => format!("VARIABLE {}", v),
 		Node::Expression(nodes) => {
 			let count = nodes.len();
-			let link_type = if needs_link_template(nodes) { "LINK_TEMPLATE" } else { "LINK" };
-			let mut parts = vec![format!("{} Expression {}", link_type, count)];
+			let mut parts = Vec::new();
+			let is_link_template = needs_link_template(nodes);
+			let has_inner_link_template = nodes.iter().any(|node| {
+				if let Node::Expression(sub_nodes) = node {
+					needs_link_template(sub_nodes)
+						|| sub_nodes.iter().any(|n| {
+							if let Node::Expression(inner_nodes) = n {
+								needs_link_template(inner_nodes)
+									|| inner_nodes.iter().any(|m| matches!(m, Node::Variable(_)))
+							} else {
+								false
+							}
+						})
+				} else {
+					false
+				}
+			});
+			// Nested logic: LINK_TEMPLATE only if VARIABLE and no inner LINK_TEMPLATE/LINK_TEMPLATE2
+			let link_type = if is_link_template && !has_inner_link_template {
+				"LINK_TEMPLATE"
+			} else if is_link_template || has_inner_link_template {
+				"LINK_TEMPLATE2"
+			} else {
+				"LINK"
+			};
+			parts.push(format!("{} Expression {}", link_type, count));
 			for node in nodes {
-				parts.push(generate_output(node));
+				parts.push(generate_output_inner(node));
 			}
 			parts.join(" ")
 		},
 	}
-}
-
-// Determine if an expression needs LINK_TEMPLATE
-fn needs_link_template(nodes: &[Node]) -> bool {
-	for node in nodes {
-		match node {
-			Node::Variable(_) => return true,
-			Node::Expression(sub_nodes) => {
-				// Recursively check if the sub-expression needs LINK_TEMPLATE
-				if needs_link_template(sub_nodes) {
-					return true;
-				}
-			},
-			Node::Symbol(_) => continue,
-		}
-	}
-	false
 }
 
 pub fn translate(input: &str) -> String {

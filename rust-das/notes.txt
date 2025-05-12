@@ -253,3 +253,144 @@ AND 2
     LINK_TEMPLATE Expression 2 
       NODE Symbol CONCEPT 
       VARIABLE R
+
+
+--- Works
+(EVALUATION (PREDICATE "has_leaves") (CONCEPT "tree"))
+(EVALUATION (PREDICATE "has_leaves") (CONCEPT "bush"))
+(EVALUATION (PREDICATE "has_leaves") (CONCEPT "vine"))
+(EVALUATION (PREDICATE "has_leaves") (CONCEPT "flower"))
+
+!(match &das (EVALUATION (PREDICATE "has_leaves") (CONCEPT $C)) (Concept $C))
+
+(EVALUATION (PREDICATE "is_mammal") (CONCEPT (SPORT "football")))
+(EVALUATION (PREDICATE "is_mammal") (CONCEPT (SPORT "volleyball")))
+(EVALUATION (PREDICATE "is_mammal") (CONCEPT (SPORT "basketball")))
+
+!(match &das (EVALUATION (PREDICATE "is_mammal") (CONCEPT (SPORT $S))) (Concept $S))
+-----
+
+
+(EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm "67435306")))
+(EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm "67435307")))
+(EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm "67435308")))
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm $ID))) (cvterm_id $ID))
+
+
+
+LINK_TEMPLATE Expression 3 
+  NODE Symbol EVALUATION
+  LINK Expression 4 
+    NODE Symbol PREDICATE 
+    NODE Symbol public.cvterm 
+    NODE Symbol public.cvterm.name 
+    NODE Symbol "Alzheimer's disease" 
+  LINK_TEMPLATE Expression 3 
+    NODE Symbol CONCEPT 
+    NODE Symbol public.cvterm 
+    VARIABLE ID
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 3 
+      NODE Symbol public.cvterm 
+      NODE Symbol public.cvterm.name 
+      NODE Symbol "Alzheimer's disease" 
+  LINK_TEMPLATE Expression 2 
+    NODE Symbol CONCEPT 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol public.cvterm 
+      VARIABLE ID
+
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm $ID))) (cvterm_id $ID))
+!(match &das (LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.name NODE Symbol "Alzheimer's disease" LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE ID) (cvterm_id $ID))
+
+--- Does not work:
+!(match &das (EVALUATION (PREDICATE (public.cvterm $NAME "Alzheimer's disease")) (CONCEPT (public.cvterm "118248"))) (name $NAME))
+!(match &das (PREDICATE (public.cvterm $NAME "Alzheimer's disease")) (name $NAME))
+
+--- Work
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT $ID)) (cvterm_id $ID))
+!(match &das (public.cvterm public.cvterm.name $D) (disease $D))
+
+
+
+
+!(match &das (CONCEPT (public.cvterm $CVTERM)) (cvterm $CVTERM))
+
+
+::: LOGS: !(match &das (public.cvterm $CVTERM) (cvterm $CVTERM))
+  test-das-query-agent-node  | 2025-05-12 17:02:29 | [INFO] | Command: <pattern_matching_query> delivered to bus element: 0.0.0.0:35700
+  test-das-query-agent-node  | SynchronousGRPC listening on 0.0.0.0:64006
+  test-das-query-agent-node  | 2025-05-12 17:02:29 | [INFO] | Node <Symbol, public.cvterm, 5d25df132a4e9cbc6f980eaa5331dd63>
+  test-das-query-agent-node  | 2025-05-12 17:02:29 | [INFO] | LinkTemplate 6f7dbe0a89cf0670ed6aa54511afcdf2 [Expression <5d25df132a4e9cbc6f980eaa5331dd63, *>]
+  test-das-query-agent-node  | 2025-05-12 17:02:29 | [INFO] | Fetched 11757 links for link template 6f7dbe0a89cf0670ed6aa54511afcdf2 [Expression <5d25df132a4e9cbc6f980eaa5331dd63, *>]
+  test-das-attention-broker  | 2025-05-12 17:02:29 | [INFO] | Getting importance of 11757 handles
+  test-das-query-agent-node  | 2025-05-12 17:02:31 | [INFO] | Total processed answers: 11757
+
+::: LOGS: !(match &das (CONCEPT (public.cvterm $CVTERM)) (cvterm $CVTERM))
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | Command: <pattern_matching_query> delivered to bus element: 0.0.0.0:35700
+  test-das-query-agent-node  | SynchronousGRPC listening on 0.0.0.0:64008
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | Node <Symbol, public.cvterm, 5d25df132a4e9cbc6f980eaa5331dd63>
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | LinkTemplate 6f7dbe0a89cf0670ed6aa54511afcdf2 [Expression <5d25df132a4e9cbc6f980eaa5331dd63, *>]
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | Node <Symbol, CONCEPT, c28512d242fb830dd0f52fe36010e502>
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | LinkTemplate b291f7d83d8d7f5b0b754defa1df2ba0 [Expression <c28512d242fb830dd0f52fe36010e502, * (6f7dbe0a89cf0670ed6aa54511afcdf25)>]
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | Fetched 11757 links for link template 6f7dbe0a89cf0670ed6aa54511afcdf2 [Expression <5d25df132a4e9cbc6f980eaa5331dd63, *>]
+  test-das-attention-broker  | 2025-05-12 17:03:02 | [INFO] | Getting importance of 11757 handles
+  test-das-query-agent-node  | 2025-05-12 17:03:02 | [INFO] | Fetched 23514 links for link template b291f7d83d8d7f5b0b754defa1df2ba0 [Expression <c28512d242fb830dd0f52fe36010e502, * (6f7dbe0a89cf0670ed6aa54511afcdf25)>]
+  test-das-attention-broker  | 2025-05-12 17:03:02 | [INFO] | Getting importance of 23514 handles
+
+
+
+-- OK:
+  !(match &das (public.cvterm $CVTERM) (cvterm $CVTERM))
+  !(match &das (public.cvterm public.cvterm.name $D) (disease $D))
+  !(match &das (PREDICATE (public.cvterm public.cvterm.name $D)) (disease $D))    [chunked response]
+
+  !(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT $C)) (Concept $C))
+  !(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name SADDAN)) (CONCEPT $C)) (Concept $C))
+
+  !(match &das (CONCEPT (public.cvterm $C)) (Concept $C))   [chunked response]
+  !(match &das (CONCEPT ($P "118248")) (Field $P))
+  !(match &das ($C (public.cvterm "118248")) (Type $C))
+
+  !(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) ($FIELD (public.cvterm "118248"))) (Field $FIELD))
+  !(match &das (EVALUATION ($FIELD (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm "118248"))) (Field $FIELD))
+
+-- NOOK:
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm $CVTERM))) (cvterm $CVTERM))
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name $N)) (CONCEPT (public.cvterm "118248"))) (Name $N))
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name SADDAN)) (CONCEPT (public.cvterm $CVTERM))) (cvterm $CVTERM))
+!(match &das (LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.name NODE Symbol SADDAN LINK_TEMPLATE Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM) (cvterm $CVTERM))
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name SADDAN)) (CONCEPT (public.cvterm $CVTERM))) (cvterm $CVTERM))
+
+!(match &das (EVALUATION (PREDICATE ($FIELD public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm "118248"))) (Field $FIELD))
+
+!(match &das (EVALUATION ($P (public.cvterm public.cvterm.name "Alzheimer's disease")) ($C (public.cvterm "118248"))) (Predicate $P | Conceptr $C))
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 3 
+      NODE Symbol public.cvterm 
+      NODE Symbol public.cvterm.name 
+      NODE Symbol SADDAN 
+  LINK_TEMPLATE Expression 2 
+    NODE Symbol CONCEPT 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol public.cvterm 
+      VARIABLE CVTERM
+
+
+!(match &das (LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.name NODE Symbol SADDAN LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM) (cvterm $CVTERM))
+
+
