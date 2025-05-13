@@ -176,7 +176,8 @@ pub fn query_with_das(
             let splitted: Vec<&str> = query_answer.split_whitespace().collect();
             for (idx, word) in splitted.clone().iter().enumerate() {
                 if let Some(value) = variables.get_mut(&word.to_string()) {
-                    *value = splitted[idx + 1].to_string();
+                    let handle = splitted[idx + 1];
+                    *value = handle.to_string();
                 }
             }
 
@@ -197,9 +198,37 @@ pub fn query_with_das(
         }
     }
 
-    log::trace!(target: "das", "BindingsSet: {:?} (len={})", bindings_set, bindings_set.len());
+    let max_mongodb_fetch = 5;
+    let mut count = 0;
 
-    Ok(bindings_set)
+    let mut final_bindings_set = BindingsSet::empty();
+    for b in bindings_set {
+        let mut bindings = Bindings::new();
+        for var in b.clone().vars() {
+            let handle = b.resolve(var).unwrap().to_string();
+            if count < max_mongodb_fetch {
+                let value = if let Some(ref mongodb_repo) = proxy.maybe_mongodb_repo {
+                    match mongodb_repo.fetch_handle_name(&handle) {
+                        Ok(name) => name,
+                        Err(_) => handle,
+                    }
+                } else {
+                    handle.to_string()
+                };
+                bindings = bindings.add_var_binding(var, &Atom::sym(value)).unwrap();
+            } else {
+                bindings = bindings.add_var_binding(var, &Atom::sym(handle.to_string())).unwrap();
+            }
+        }
+        count += 1;
+        final_bindings_set.push(bindings);
+    }
+
+    log::trace!(target: "das", "BindingsSet: {:?} (len={})", final_bindings_set, final_bindings_set.len());
+
+    proxy.drop_runtime();
+
+    Ok(final_bindings_set)
 }
 
 #[cfg(test)]

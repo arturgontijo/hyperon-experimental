@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
-use std::thread;
+use std::{env, thread};
 
 use tokio::runtime::{Builder, Runtime};
 use tonic::{transport::Server, Request, Response, Status};
@@ -12,6 +12,7 @@ mod das_proto {
 	tonic::include_proto!("dasproto");
 }
 
+use crate::helpers::mongodb::MongoRepository;
 use crate::port_pool::PortPool;
 use crate::{bus::PATTERN_MATCHING_QUERY, types::BoxError};
 
@@ -40,6 +41,10 @@ pub struct PatternMatchingQueryProxy {
 	pub serial: u64,
 	pub proxy_port: u32,
 	pub proxy_node: ProxyNode,
+
+	pub maybe_mongodb_repo: Option<MongoRepository>,
+
+	runtime: Arc<RwLock<Option<Arc<Runtime>>>>,
 }
 
 impl PatternMatchingQueryProxy {
@@ -55,6 +60,15 @@ impl PatternMatchingQueryProxy {
 		];
 		args.extend(tokens);
 
+		let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+		let runtime = Arc::new(RwLock::new(Some(runtime)));
+
+		// POC (fetching handle's data from MongoDB, directly)
+		let maybe_mongodb_repo = match env::var("MONGODB_URI") {
+			Ok(uri) => Some(MongoRepository::new(uri.to_string(), runtime.clone())?),
+			Err(_) => None,
+		};
+
 		Ok(Self {
 			answer_queue: Arc::new(Mutex::new(VecDeque::new())),
 			answer_count: Arc::new(Mutex::new(0)),
@@ -69,6 +83,10 @@ impl PatternMatchingQueryProxy {
 
 			command: PATTERN_MATCHING_QUERY.to_string(),
 			args,
+
+			maybe_mongodb_repo,
+
+			runtime,
 
 			..Default::default()
 		})
@@ -119,6 +137,15 @@ impl PatternMatchingQueryProxy {
 			self.proxy_node = ProxyNode::new(self, requestor_id, "".to_string());
 		}
 	}
+
+	pub fn drop_runtime(&mut self) {
+		log::trace!(target: "das", "Dropping PatternMatchingQueryProxy...");
+		// Releasing Runtime
+		let mut runtime_lock = self.runtime.write().unwrap();
+		if let Some(runtime) = runtime_lock.take() {
+			thread::spawn(move || drop(runtime));
+		}
+	}
 }
 
 #[derive(Clone, Default)]
@@ -126,14 +153,14 @@ pub struct ProxyNode {
 	node_id: String,
 	server_id: String,
 	peer_id: String,
-	runtime: Arc<RwLock<Option<Arc<Runtime>>>>,
 }
 
 impl ProxyNode {
 	pub fn new(proxy: &mut PatternMatchingQueryProxy, node_id: String, server_id: String) -> Self {
 		let star_node = StarNode::new(node_id.clone(), Arc::new(proxy.clone()));
 
-		let runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
+		let runtime_lock = proxy.runtime.read().unwrap();
+		let runtime = runtime_lock.clone().unwrap();
 
 		// Start gRPC server (runs indefinitely)
 		let node_clone = star_node.clone();
@@ -141,12 +168,7 @@ impl ProxyNode {
 			node_clone.start_server().await.unwrap();
 		});
 
-		Self {
-			node_id,
-			server_id,
-			peer_id: "".to_string(),
-			runtime: Arc::new(RwLock::new(Some(runtime))),
-		}
+		Self { node_id, server_id, peer_id: "".to_string() }
 	}
 
 	pub fn node_id(&self) -> String {
@@ -160,12 +182,6 @@ impl ProxyNode {
 
 impl Drop for ProxyNode {
 	fn drop(&mut self) {
-		// Releasing Runtime
-		let mut runtime_lock = self.runtime.write().unwrap();
-		if let Some(runtime) = runtime_lock.take() {
-			thread::spawn(move || drop(runtime));
-		}
-
 		// Returning Port
 		if !self.node_id.is_empty() {
 			log::trace!(target: "das", "Dropping ProxyNode with data: {}", self.node_id);

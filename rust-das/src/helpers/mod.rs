@@ -1,3 +1,5 @@
+pub mod mongodb;
+
 use std::collections::VecDeque;
 
 // Enum to represent the parsed S-expression tokens
