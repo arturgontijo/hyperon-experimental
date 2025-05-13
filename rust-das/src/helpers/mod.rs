@@ -66,7 +66,6 @@ impl Parser {
 	}
 }
 
-// Tokenize the input string into a vector of tokens
 fn tokenize(input: &str) -> Vec<Token> {
 	let mut tokens = Vec::new();
 	let mut chars = input.chars().peekable();
@@ -152,27 +151,26 @@ fn generate_output(node: &Node) -> String {
 		Node::Expression(nodes) => {
 			let count = nodes.len();
 			let mut parts = Vec::new();
-			// Check for inner LINK_TEMPLATE or LINK_TEMPLATE2
 			let has_inner_link_template = nodes.iter().any(|node| {
 				if let Node::Expression(sub_nodes) = node {
-					needs_link_template(sub_nodes)
-						|| sub_nodes.iter().any(|n| {
-							if let Node::Expression(inner_nodes) = n {
-								needs_link_template(inner_nodes)
-									|| inner_nodes.iter().any(|m| matches!(m, Node::Variable(_)))
-							} else {
-								false
-							}
-						})
+					needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
 				} else {
 					false
 				}
 			});
-			// Top-level logic: LINK_TEMPLATE if only VARIABLE and no inner LINK_TEMPLATE/LINK_TEMPLATE2, else LINK_TEMPLATE2
-			let link_type = if needs_link_template(nodes) && !has_inner_link_template {
-				"LINK_TEMPLATE"
-			} else {
+			// Use LINK_TEMPLATE2 for EVALUATION, otherwise depend on inner templates
+			let link_type = if nodes
+				.first()
+				.map(|n| matches!(n, Node::Symbol(s) if s == "EVALUATION"))
+				.unwrap_or(false)
+			{
 				"LINK_TEMPLATE2"
+			} else if needs_link_template(nodes) && !has_inner_link_template {
+				"LINK_TEMPLATE"
+			} else if has_inner_link_template {
+				"LINK_TEMPLATE2"
+			} else {
+				"LINK"
 			};
 			parts.push(format!("{} Expression {}", link_type, count));
 			for node in nodes {
@@ -180,8 +178,20 @@ fn generate_output(node: &Node) -> String {
 			}
 			parts.join(" ")
 		},
-		_ => generate_output_inner(node), // Non-expression nodes use inner logic
+		_ => generate_output_inner(node),
 	}
+}
+
+// Helper function to check for inner LINK_TEMPLATE or LINK_TEMPLATE2
+fn has_inner_templates(nodes: &[Node]) -> bool {
+	nodes.iter().any(|node| {
+		if let Node::Expression(sub_nodes) = node {
+			// Only count as inner template if the sub-expression itself would use LINK_TEMPLATE or LINK_TEMPLATE2
+			needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
+		} else {
+			false // Variables alone don't count as inner templates
+		}
+	})
 }
 
 // Helper function to generate output for nested nodes
@@ -195,24 +205,16 @@ fn generate_output_inner(node: &Node) -> String {
 			let is_link_template = needs_link_template(nodes);
 			let has_inner_link_template = nodes.iter().any(|node| {
 				if let Node::Expression(sub_nodes) = node {
-					needs_link_template(sub_nodes)
-						|| sub_nodes.iter().any(|n| {
-							if let Node::Expression(inner_nodes) = n {
-								needs_link_template(inner_nodes)
-									|| inner_nodes.iter().any(|m| matches!(m, Node::Variable(_)))
-							} else {
-								false
-							}
-						})
+					needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
 				} else {
 					false
 				}
 			});
-			// Nested logic: LINK_TEMPLATE only if VARIABLE and no inner LINK_TEMPLATE/LINK_TEMPLATE2
-			let link_type = if is_link_template && !has_inner_link_template {
-				"LINK_TEMPLATE"
-			} else if is_link_template || has_inner_link_template {
+			// Use LINK_TEMPLATE2 for inner templates, LINK_TEMPLATE for variables, LINK otherwise
+			let link_type = if has_inner_link_template {
 				"LINK_TEMPLATE2"
+			} else if is_link_template {
+				"LINK_TEMPLATE"
 			} else {
 				"LINK"
 			};

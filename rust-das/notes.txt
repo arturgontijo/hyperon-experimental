@@ -394,3 +394,121 @@ LINK_TEMPLATE2 Expression 3
 !(match &das (LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.name NODE Symbol SADDAN LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM) (cvterm $CVTERM))
 
 
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK_TEMPLATE2 Expression 2 
+    NODE Symbol PREDICATE 
+    LINK_TEMPLATE Expression 3 
+      NODE Symbol public.feature 
+      NODE Symbol public.feature.name 
+      VARIABLE N 
+  LINK Expression 2 
+    NODE Symbol CONCEPT 
+    LINK Expression 2 
+      NODE Symbol public.feature 
+      NODE Symbol '"44668129"'
+
+
+!(match &das ($F "44668129") ($F public.feature))
+
+
+(EVALUATION (PREDICATE (public.feature.type_id (CONCEPT (public.cvterm "147897")))) (CONCEPT (public.feature "67435315")))
+
+!(match &das (EVALUATION (PREDICATE (public.feature.type_id (CONCEPT (public.cvterm $CVTERM)))) (CONCEPT (public.feature "67435315"))) (cvterm $CVTERM))
+
+!(match &das (EVALUATION (PREDICATE (public.feature.type_id (CONCEPT (public.cvterm "147897")))) (CONCEPT (public.feature $F))) (feature $F))
+
+
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK_TEMPLATE2 Expression 2 
+      NODE Symbol public.feature.type_id 
+      LINK_TEMPLATE2 Expression 2 
+        NODE Symbol CONCEPT 
+        LINK_TEMPLATE Expression 2 
+          NODE Symbol public.cvterm 
+          VARIABLE CVTERM 
+  LINK Expression 2 
+    NODE Symbol CONCEPT 
+    LINK Expression 2 
+      NODE Symbol public.feature 
+      NODE Symbol "67435315"
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK_TEMPLATE2 Expression 2 
+    NODE Symbol PREDICATE 
+    LINK_TEMPLATE2 Expression 2 
+      NODE Symbol public.feature.type_id 
+      LINK_TEMPLATE2 Expression 2 
+        NODE Symbol CONCEPT 
+        LINK_TEMPLATE Expression 2 
+          NODE Symbol public.cvterm 
+          VARIABLE CVTERM 
+  LINK Expression 2 
+    NODE Symbol CONCEPT 
+    LINK Expression 2 
+      NODE Symbol public.feature 
+      NODE Symbol "67435315"
+
+
+./bin/query 0.0.0.0:42500 0.0.0.0:39900 0 50 LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE2 Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "\"67435315\""
+
+
+./bin/query 0.0.0.0:42500 0.0.0.0:35700 0 50 LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE2 Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "\"67435315\""
+
+
+
+!(match &das (LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE2 Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435315") (cvterm $CVTERM))
+
+
+LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435315"
+LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK_TEMPLATE2 Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435315"
+
+
+
+LINK_TEMPLATE2 Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK_TEMPLATE2 Expression 2 NODE Symbol public.feature.type_id LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM LINK Expression 2 NODE Symbol CONCEPT LINK Expression 2 NODE Symbol public.feature NODE Symbol "67435315"
+
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK_TEMPLATE2 Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 2 
+      NODE Symbol public.cvterm.cv_id 
+      LINK_TEMPLATE2 Expression 2 
+        NODE Symbol CONCEPT 
+        LINK Expression 2 
+          NODE Symbol public.cv 
+          NODE Symbol "73" 
+          LINK_TEMPLATE2 Expression 2 
+            NODE Symbol CONCEPT 
+            LINK_TEMPLATE Expression 2 
+              NODE Symbol public.cvterm 
+              VARIABLE C
+
+
+
+LINK_TEMPLATE2 Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 2 
+      NODE Symbol public.cvterm.cv_id 
+      LINK Expression 2 
+        NODE Symbol CONCEPT 
+        LINK Expression 2 
+          NODE Symbol public.cv 
+          NODE Symbol "73" 
+  LINK_TEMPLATE2 Expression 2 
+    NODE Symbol CONCEPT 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol public.cvterm 
+      VARIABLE C
+
