@@ -169,6 +169,9 @@ pub fn query_with_das(
     let mut service_bus = service_bus.lock().unwrap();
     service_bus.issue_bus_command(&mut proxy)?;
 
+    let max_mongodb_fetch = 250;
+    let mut mongodb_fetch_count = 0;
+
     while !proxy.finished() {
         if let Some(query_answer) = proxy.pop() {
             log::trace!(target: "das", "{}", query_answer.to_string());
@@ -177,9 +180,23 @@ pub fn query_with_das(
             for (idx, word) in splitted.clone().iter().enumerate() {
                 if let Some(value) = variables.get_mut(&word.to_string()) {
                     let handle = splitted[idx + 1];
-                    *value = handle.to_string();
+                    if mongodb_fetch_count < max_mongodb_fetch {
+                        let v = if let Some(ref mongodb_repo) = proxy.maybe_mongodb_repo {
+                            match mongodb_repo.fetch_handle_name(&handle) {
+                                Ok(name) => name,
+                                Err(_) => handle.to_string(),
+                            }
+                        } else {
+                            handle.to_string()
+                        };
+                        *value = v;
+                    } else {
+                        *value = handle.to_string();
+                    }
                 }
             }
+
+            mongodb_fetch_count += 1;
 
             let mut bindings = Bindings::new();
             for (key, value) in &variables {
@@ -198,37 +215,11 @@ pub fn query_with_das(
         }
     }
 
-    let max_mongodb_fetch = 5;
-    let mut count = 0;
-
-    let mut final_bindings_set = BindingsSet::empty();
-    for b in bindings_set {
-        let mut bindings = Bindings::new();
-        for var in b.clone().vars() {
-            let handle = b.resolve(var).unwrap().to_string();
-            if count < max_mongodb_fetch {
-                let value = if let Some(ref mongodb_repo) = proxy.maybe_mongodb_repo {
-                    match mongodb_repo.fetch_handle_name(&handle) {
-                        Ok(name) => name,
-                        Err(_) => handle,
-                    }
-                } else {
-                    handle.to_string()
-                };
-                bindings = bindings.add_var_binding(var, &Atom::sym(value)).unwrap();
-            } else {
-                bindings = bindings.add_var_binding(var, &Atom::sym(handle.to_string())).unwrap();
-            }
-        }
-        count += 1;
-        final_bindings_set.push(bindings);
-    }
-
-    log::trace!(target: "das", "BindingsSet: {:?} (len={})", final_bindings_set, final_bindings_set.len());
+    log::trace!(target: "das", "BindingsSet: {:?} (len={})", bindings_set, bindings_set.len());
 
     proxy.drop_runtime();
 
-    Ok(final_bindings_set)
+    Ok(bindings_set)
 }
 
 #[cfg(test)]
