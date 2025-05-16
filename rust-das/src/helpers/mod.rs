@@ -30,8 +30,12 @@ impl Parser {
 		Parser { tokens: VecDeque::from(tokens) }
 	}
 
-	fn parse(&mut self) -> Option<Node> {
-		self.parse_expression()
+	fn parse(&mut self) -> Vec<Node> {
+		let mut nodes = Vec::new();
+		while let Some(node) = self.parse_expression() {
+			nodes.push(node);
+		}
+		nodes
 	}
 
 	fn parse_expression(&mut self) -> Option<Node> {
@@ -130,19 +134,20 @@ fn classify_token(s: &str) -> Token {
 	}
 }
 
-// Determine if an expression needs LINK_TEMPLATE (only for VARIABLE without inner LINK_TEMPLATE or LINK_TEMPLATE2)
+// Determine if an expression would be LINK_TEMPLATE (contains a VARIABLE)
 fn needs_link_template(nodes: &[Node]) -> bool {
-	let has_variable = nodes.iter().any(|node| matches!(node, Node::Variable(_)));
-	let has_inner_link_template = nodes.iter().any(|node| {
+	nodes.iter().any(|node| matches!(node, Node::Variable(_)))
+}
+
+// Determine if an expression has a direct child that is a LINK_TEMPLATE
+fn has_direct_link_template(nodes: &[Node]) -> bool {
+	nodes.iter().any(|node| {
 		if let Node::Expression(sub_nodes) = node {
-			// Check if sub-expression is LINK_TEMPLATE or LINK_TEMPLATE2
 			needs_link_template(sub_nodes)
-				|| sub_nodes.iter().any(|n| matches!(n, Node::Variable(_)))
 		} else {
 			false
 		}
-	});
-	has_variable && !has_inner_link_template
+	})
 }
 
 // Generate the output string from the AST as a single line
@@ -151,26 +156,15 @@ fn generate_output(node: &Node) -> String {
 		Node::Expression(nodes) => {
 			let count = nodes.len();
 			let mut parts = Vec::new();
-			let has_inner_link_template = nodes.iter().any(|node| {
-				if let Node::Expression(sub_nodes) = node {
-					needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
-				} else {
-					false
-				}
-			});
-			// Use LINK_TEMPLATE2 for EVALUATION, otherwise depend on inner templates
-			let link_type = if nodes
-				.first()
-				.map(|n| matches!(n, Node::Symbol(s) if s == "EVALUATION"))
-				.unwrap_or(false)
-			{
+			let is_link_template = needs_link_template(nodes);
+			let has_direct_link_template = has_direct_link_template(nodes);
+			// Top-level must use LINK_TEMPLATE or LINK_TEMPLATE2
+			let link_type = if has_direct_link_template {
 				"LINK_TEMPLATE2"
-			} else if needs_link_template(nodes) && !has_inner_link_template {
+			} else if is_link_template {
 				"LINK_TEMPLATE"
-			} else if has_inner_link_template {
-				"LINK_TEMPLATE2"
 			} else {
-				"LINK"
+				"LINK_TEMPLATE" // Default to LINK_TEMPLATE for top-level if no LINK
 			};
 			parts.push(format!("{} Expression {}", link_type, count));
 			for node in nodes {
@@ -182,18 +176,6 @@ fn generate_output(node: &Node) -> String {
 	}
 }
 
-// Helper function to check for inner LINK_TEMPLATE or LINK_TEMPLATE2
-fn has_inner_templates(nodes: &[Node]) -> bool {
-	nodes.iter().any(|node| {
-		if let Node::Expression(sub_nodes) = node {
-			// Only count as inner template if the sub-expression itself would use LINK_TEMPLATE or LINK_TEMPLATE2
-			needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
-		} else {
-			false // Variables alone don't count as inner templates
-		}
-	})
-}
-
 // Helper function to generate output for nested nodes
 fn generate_output_inner(node: &Node) -> String {
 	match node {
@@ -203,15 +185,9 @@ fn generate_output_inner(node: &Node) -> String {
 			let count = nodes.len();
 			let mut parts = Vec::new();
 			let is_link_template = needs_link_template(nodes);
-			let has_inner_link_template = nodes.iter().any(|node| {
-				if let Node::Expression(sub_nodes) = node {
-					needs_link_template(sub_nodes) || has_inner_templates(sub_nodes)
-				} else {
-					false
-				}
-			});
-			// Use LINK_TEMPLATE2 for inner templates, LINK_TEMPLATE for variables, LINK otherwise
-			let link_type = if has_inner_link_template {
+			let has_direct_link_template = has_direct_link_template(nodes);
+			// LINK_TEMPLATE2 if direct child is LINK_TEMPLATE, LINK_TEMPLATE if contains VARIABLE, LINK otherwise
+			let link_type = if has_direct_link_template {
 				"LINK_TEMPLATE2"
 			} else if is_link_template {
 				"LINK_TEMPLATE"
@@ -229,10 +205,11 @@ fn generate_output_inner(node: &Node) -> String {
 
 pub fn translate(input: &str) -> String {
 	let mut parser = Parser::new(input);
-	if let Some(ast) = parser.parse() {
-		generate_output(&ast)
-	} else {
+	let ast = parser.parse();
+	if ast.is_empty() {
 		"Parse error".to_string()
+	} else {
+		ast.iter().map(generate_output).collect::<Vec<String>>().join(" ")
 	}
 }
 
