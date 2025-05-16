@@ -522,6 +522,8 @@ LINK_TEMPLATE2 Expression 3
   (cvterm_id $cvterm_id)
 )
 
+Terminals.cc (NODE LINK)
+
 SELECT cvterm_id FROM cvterm WHERE is_obsolete = 0 AND cv_id = 73 AND name = 'Alzheimer's disease';
 
 AND 3
@@ -600,3 +602,30 @@ LINK_TEMPLATE Expression 3 \
 !(match &das (EVALUATION (PREDICATE (public.cvterm public.cvterm.name "Alzheimer's disease")) (CONCEPT (public.cvterm $CVTERM))) (cvterm $CVTERM))
 
 !(match &das (LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.name NODE Symbol "Alzheimer's disease" LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE CVTERM) (cvterm $CVTERM))
+
+
+
+LINK_TEMPLATE Expression 3 
+  NODE Symbol EVALUATION 
+  LINK Expression 2 
+    NODE Symbol PREDICATE 
+    LINK Expression 3 
+      NODE Symbol public.cvterm 
+      NODE Symbol public.cvterm.is_obsolete 
+      NODE Symbol "0" 
+  LINK_TEMPLATE2 Expression 2 
+    NODE Symbol CONCEPT 
+    LINK_TEMPLATE Expression 2 
+      NODE Symbol public.cvterm 
+      VARIABLE cvterm_id
+
+./bin/query 0.0.0.0:42500 0.0.0.0:39900 0 50 LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 3 NODE Symbol public.cvterm NODE Symbol public.cvterm.is_obsolete NODE Symbol "0" LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE cvterm_id
+
+
+
+LINK_TEMPLATE Expression 3 NODE Symbol EVALUATION LINK Expression 2 NODE Symbol PREDICATE LINK Expression 2 NODE Symbol public.cvterm.cv_id LINK Expression 3 NODE Symbol CONCEPT NODE Symbol public.cv NODE Symbol "73" LINK_TEMPLATE2 Expression 2 NODE Symbol CONCEPT LINK_TEMPLATE Expression 2 NODE Symbol public.cvterm VARIABLE cvterm_id
+
+!(match &das (EVALUATION (PREDICATE (public.cvterm.cv_id (CONCEPT public.cv "73"))) (CONCEPT (public.cvterm $cvterm_id))) (cvterm $CVTERM))
+
+
+

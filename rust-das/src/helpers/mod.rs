@@ -12,7 +12,7 @@ enum Token {
 }
 
 // Enum to represent the AST nodes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Node {
 	Symbol(String),
 	Variable(String),
@@ -143,7 +143,15 @@ fn needs_link_template(nodes: &[Node]) -> bool {
 fn has_direct_link_template(nodes: &[Node]) -> bool {
 	nodes.iter().any(|node| {
 		if let Node::Expression(sub_nodes) = node {
+			// Child is LINK_TEMPLATE if it contains a VARIABLE and has no inner expressions with variables
 			needs_link_template(sub_nodes)
+				&& !sub_nodes.iter().any(|sub_node| {
+					if let Node::Expression(inner_nodes) = sub_node {
+						needs_link_template(inner_nodes)
+					} else {
+						false
+					}
+				})
 		} else {
 			false
 		}
@@ -156,16 +164,10 @@ fn generate_output(node: &Node) -> String {
 		Node::Expression(nodes) => {
 			let count = nodes.len();
 			let mut parts = Vec::new();
-			let is_link_template = needs_link_template(nodes);
 			let has_direct_link_template = has_direct_link_template(nodes);
-			// Top-level must use LINK_TEMPLATE or LINK_TEMPLATE2
-			let link_type = if has_direct_link_template {
-				"LINK_TEMPLATE2"
-			} else if is_link_template {
-				"LINK_TEMPLATE"
-			} else {
-				"LINK_TEMPLATE" // Default to LINK_TEMPLATE for top-level if no LINK
-			};
+			// Top-level uses LINK_TEMPLATE2 for direct LINK_TEMPLATE, LINK_TEMPLATE otherwise
+			let link_type =
+				if has_direct_link_template { "LINK_TEMPLATE2" } else { "LINK_TEMPLATE" };
 			parts.push(format!("{} Expression {}", link_type, count));
 			for node in nodes {
 				parts.push(generate_output_inner(node));
@@ -173,6 +175,17 @@ fn generate_output(node: &Node) -> String {
 			parts.join(" ")
 		},
 		_ => generate_output_inner(node),
+	}
+}
+
+fn is_template_like(node: &Node) -> bool {
+	match node {
+		Node::Variable(_) => true,
+		Node::Expression(nodes) => {
+			// If this node contains any VARIABLE or has child expressions that are template-like
+			needs_link_template(nodes) || nodes.iter().any(is_template_like)
+		},
+		_ => false,
 	}
 }
 
@@ -186,10 +199,11 @@ fn generate_output_inner(node: &Node) -> String {
 			let mut parts = Vec::new();
 			let is_link_template = needs_link_template(nodes);
 			let has_direct_link_template = has_direct_link_template(nodes);
-			// LINK_TEMPLATE2 if direct child is LINK_TEMPLATE, LINK_TEMPLATE if contains VARIABLE, LINK otherwise
+			// LINK_TEMPLATE2 only for direct LINK_TEMPLATE child, LINK_TEMPLATE for VARIABLE, LINK otherwise
+			let is_template = is_template_like(&Node::Expression(nodes.clone()));
 			let link_type = if has_direct_link_template {
 				"LINK_TEMPLATE2"
-			} else if is_link_template {
+			} else if is_template {
 				"LINK_TEMPLATE"
 			} else {
 				"LINK"
