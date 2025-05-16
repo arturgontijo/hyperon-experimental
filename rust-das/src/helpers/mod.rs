@@ -197,7 +197,6 @@ fn generate_output_inner(node: &Node) -> String {
 		Node::Expression(nodes) => {
 			let count = nodes.len();
 			let mut parts = Vec::new();
-			let is_link_template = needs_link_template(nodes);
 			let has_direct_link_template = has_direct_link_template(nodes);
 			// LINK_TEMPLATE2 only for direct LINK_TEMPLATE child, LINK_TEMPLATE for VARIABLE, LINK otherwise
 			let is_template = is_template_like(&Node::Expression(nodes.clone()));
