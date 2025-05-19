@@ -169,7 +169,7 @@ pub fn query_with_das(
     let mut service_bus = service_bus.lock().unwrap();
     service_bus.issue_bus_command(&mut proxy)?;
 
-    let max_mongodb_fetch = 250;
+    let max_mongodb_fetch = 500;
     let mut mongodb_fetch_count = 0;
 
     while !proxy.finished() {
