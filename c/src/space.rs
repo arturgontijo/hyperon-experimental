@@ -1,7 +1,7 @@
 use hyperon::common::FlexRef;
 use hyperon::space::grounding::*;
 use hyperon::space::*;
-use hyperon::atom::*;
+use hyperon_atom::*;
 use hyperon::matcher::*;
 
 use crate::atom::*;

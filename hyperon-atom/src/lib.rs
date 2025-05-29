@@ -89,10 +89,10 @@ macro_rules! expr {
 
 #[macro_export]
 macro_rules! constexpr {
-    () => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::common::collections::CowArray::Literal(&[]))) };
-    ($x:literal) => { $crate::Atom::Symbol($crate::SymbolAtom::new($crate::common::collections::ImmutableString::Literal($x))) };
-    (($($x:tt)*)) => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::common::collections::CowArray::Literal(const { &[ $( constexpr!($x) , )* ] }))) };
-    ($($x:tt)*) => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::common::collections::CowArray::Literal(const { &[ $( constexpr!($x) , )* ] }))) };
+    () => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::collections::CowArray::Literal(&[]))) };
+    ($x:literal) => { $crate::Atom::Symbol($crate::SymbolAtom::new($crate::collections::ImmutableString::Literal($x))) };
+    (($($x:tt)*)) => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::collections::CowArray::Literal(const { &[ $( constexpr!($x) , )* ] }))) };
+    ($($x:tt)*) => { $crate::Atom::Expression($crate::ExpressionAtom::new($crate::collections::CowArray::Literal(const { &[ $( constexpr!($x) , )* ] }))) };
 }
 
 /// Constructs new symbol atom. Can be used to construct `const` instances.
@@ -111,7 +111,7 @@ macro_rules! constexpr {
 /// ```
 #[macro_export]
 macro_rules! sym {
-    ($x:literal) => { $crate::Atom::Symbol($crate::SymbolAtom::new($crate::common::collections::ImmutableString::Literal($x))) };
+    ($x:literal) => { $crate::Atom::Symbol($crate::SymbolAtom::new($crate::collections::ImmutableString::Literal($x))) };
 }
 
 pub mod matcher;
@@ -119,6 +119,11 @@ pub mod subexpr;
 mod iter;
 pub mod serial;
 pub mod gnd;
+pub mod holeyvec;
+pub mod reformove;
+pub mod collections;
+pub mod caching_mapper;
+pub mod assert;
 
 pub use iter::*;
 
@@ -126,7 +131,7 @@ use std::any::Any;
 use std::fmt::{Display, Debug};
 use std::convert::TryFrom;
 
-use crate::common::collections::{ImmutableString, CowArray};
+use collections::{ImmutableString, CowArray};
 
 // Symbol atom
 
@@ -320,7 +325,7 @@ impl Display for VariableAtom {
 
 /// Returns `atom` with all variables replaced by unique instances.
 pub fn make_variables_unique(mut atom: Atom) -> Atom {
-    let mut mapper = crate::common::CachingMapper::new(VariableAtom::make_unique);
+    let mut mapper = crate::caching_mapper::CachingMapper::new(VariableAtom::make_unique);
     atom.iter_mut().filter_type::<&mut VariableAtom>().for_each(|var| *var = mapper.replace(var.clone()));
     atom
 }

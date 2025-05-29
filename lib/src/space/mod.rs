@@ -11,9 +11,9 @@ use std::borrow::Cow;
 
 use crate::*;
 use crate::common::FlexRef;
-use crate::atom::*;
-use crate::atom::matcher::{BindingsSet, apply_bindings_to_atom_move};
-use crate::atom::subexpr::split_expr;
+
+use hyperon_atom::matcher::{BindingsSet, apply_bindings_to_atom_move};
+use hyperon_atom::subexpr::split_expr;
 
 /// Symbol to concatenate queries to space.
 pub const COMMA_SYMBOL : Atom = sym!(",");
@@ -321,7 +321,7 @@ impl PartialEq for DynSpace {
     }
 }
 
-impl crate::atom::Grounded for DynSpace {
+impl hyperon_atom::Grounded for DynSpace {
     fn type_(&self) -> Atom {
         crate::metta::ATOM_TYPE_SPACE
     }

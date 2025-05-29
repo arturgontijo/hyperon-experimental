@@ -2,7 +2,7 @@
 
 use hyperon::*;
 use hyperon::space::DynSpace;
-use hyperon::atom::serial;
+use hyperon_atom::serial;
 
 use crate::util::*;
 use crate::space::*;

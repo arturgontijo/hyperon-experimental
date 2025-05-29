@@ -4,7 +4,7 @@ pub mod trie;
 pub use trie::{ALLOW_DUPLICATION, NO_DUPLICATION, DuplicationStrategy, AllowDuplication, NoDuplication};
 use trie::*;
 
-use crate::atom::*;
+use hyperon_atom::*;
 use crate::matcher::Bindings;
 
 use std::fmt::Debug;

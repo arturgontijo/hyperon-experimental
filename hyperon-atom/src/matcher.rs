@@ -19,7 +19,7 @@
 #[macro_export]
 macro_rules! bind {
     ($($k:ident: $v:expr),*) => {
-        $crate::atom::matcher::Bindings::from( vec![$( ($crate::VariableAtom::new(stringify!($k)), $v), )*])
+        $crate::matcher::Bindings::from( vec![$( ($crate::VariableAtom::new(stringify!($k)), $v), )*])
     };
 }
 
@@ -44,15 +44,15 @@ macro_rules! bind {
 macro_rules! bind_set {
     // An empty BindingsSet
     [] => {
-        $crate::atom::matcher::BindingsSet::empty()
+        $crate::matcher::BindingsSet::empty()
     };
     // A single immediately defined Bindings
     [{$($b:tt)*}] => {
-        $crate::atom::matcher::BindingsSet::from($crate::bind!{$($b)*})
+        $crate::matcher::BindingsSet::from($crate::bind!{$($b)*})
     };
     // A single reduced Bindings
     [$b:expr] => {
-        $crate::atom::matcher::BindingsSet::from($b)
+        $crate::matcher::BindingsSet::from($b)
     };
     // Recursive pattern to handle multiple Bindings, where each item is reduced
     [$b:expr, $($b_rest:tt)*] => {{
@@ -65,8 +65,8 @@ macro_rules! bind_set {
 use std::collections::{HashMap, HashSet};
 
 use super::*;
-use crate::common::reformove::RefOrMove;
-use crate::common::holeyvec::HoleyVec;
+use crate::reformove::RefOrMove;
+use crate::holeyvec::HoleyVec;
 
 enum VarResolutionResult<T> {
     Some(T),
@@ -212,7 +212,7 @@ impl Bindings {
         self.bindings.remove(from_binding_id);
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.binding_by_var.len()
     }
 
@@ -889,7 +889,7 @@ pub struct BindingsSet(smallvec::SmallVec<[Bindings; 1]>);
 // BindingsSets are conceptually unordered
 impl PartialEq for BindingsSet {
     fn eq(&self, other: &Self) -> bool {
-        !crate::common::assert::compare_vec_no_order(self.iter(), other.iter(), crate::common::collections::DefaultEquality{}).has_diff()
+        !crate::assert::compare_vec_no_order(self.iter(), other.iter(), crate::collections::DefaultEquality{}).has_diff()
     }
 }
 

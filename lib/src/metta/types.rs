@@ -19,7 +19,7 @@
 //! of `%Undefined%` type can be matched with any type required.
 
 use super::*;
-use crate::atom::matcher::{Bindings, BindingsSet, apply_bindings_to_atom_move};
+use hyperon_atom::matcher::{Bindings, BindingsSet, apply_bindings_to_atom_move};
 use crate::space::DynSpace;
 
 use std::fmt::{Display, Debug};
@@ -603,7 +603,7 @@ pub fn validate_atom(space: &DynSpace, atom: &Atom) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::atom::matcher::atoms_are_equivalent;
+    use hyperon_atom::matcher::atoms_are_equivalent;
     use crate::metta::runner::*;
     use crate::metta::text::SExprParser;
 

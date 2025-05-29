@@ -1,8 +1,8 @@
-
-use crate::*;
 use crate::metta::text::{Tokenizer, SExprParser};
 use crate::space::DynSpace;
 use crate::space::grounding::GroundingSpace;
+
+use hyperon_atom::Atom;
 
 pub(crate) fn metta_space(text: &str) -> DynSpace {
     let mut space = GroundingSpace::new();

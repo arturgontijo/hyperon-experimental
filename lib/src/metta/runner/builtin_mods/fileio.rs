@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::space::grounding::GroundingSpace;
 use crate::metta::text::SExprParser;
 use crate::metta::runner::{ModuleLoader, RunContext, DynSpace, Metta, MettaMod};
-use crate::atom::gnd::*;
+use hyperon_atom::gnd::*;
 use crate::metta::runner::number::{Number, ATOM_TYPE_NUMBER};
 
 pub static FILEIO_METTA: &'static str = include_str!("fileio.metta");

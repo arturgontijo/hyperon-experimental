@@ -4,7 +4,7 @@ use crate::metta::*;
 use crate::metta::text::Tokenizer;
 use crate::metta::types::{get_atom_types, get_meta_type};
 use crate::common::multitrie::{MultiTrie, TrieKey, TrieToken};
-use crate::common::collections::ImmutableString;
+use hyperon_atom::collections::ImmutableString;
 use super::{grounded_op, regex};
 use crate::metta::runner::number::*;
 

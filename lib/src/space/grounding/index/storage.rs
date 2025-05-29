@@ -1,6 +1,7 @@
-use crate::atom::*;
 use crate::serial::NullSerializer;
-use crate::common::collections::write_mapping;
+
+use hyperon_atom::{Atom, GroundedAtom};
+use hyperon_atom::collections::write_mapping;
 
 use bimap::BiMap;
 use std::hash::{Hash, Hasher};

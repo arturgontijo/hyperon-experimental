@@ -3,7 +3,7 @@
 pub mod index;
 
 use super::*;
-use crate::atom::*;
+use hyperon_atom::*;
 
 use std::fmt::Debug;
 use std::collections::HashSet;

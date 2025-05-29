@@ -2,12 +2,13 @@
 //! [minimal MeTTa documentation](https://github.com/trueagi-io/hyperon-experimental/blob/main/docs/minimal-metta.md) for details.
 
 use crate::*;
-use crate::atom::matcher::*;
 use crate::space::*;
 use crate::metta::*;
 use crate::metta::types::*;
 use crate::metta::runner::stdlib::core::IfEqualOp;
-use crate::common::collections::CowArray;
+
+use hyperon_atom::matcher::*;
+use hyperon_atom::collections::CowArray;
 
 use std::fmt::{Debug, Display, Formatter};
 use std::convert::TryFrom;
@@ -345,7 +346,7 @@ impl FromIterator<VariableAtom> for Variables {
 }
 
 impl VariableSet for Variables {
-    type Iter<'a> = im::hashset::Iter<'a, atom::VariableAtom> where Self: 'a;
+    type Iter<'a> = im::hashset::Iter<'a, hyperon_atom::VariableAtom> where Self: 'a;
 
     fn contains(&self, var: &VariableAtom) -> bool {
         self.0.contains(var)

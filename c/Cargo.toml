@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 hyperon = { workspace = true }
+hyperon-atom = { workspace = true }
 regex = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }

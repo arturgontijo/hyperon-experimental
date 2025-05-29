@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
-use crate::atom::*;
+use hyperon_atom::*;
 
 pub trait LockBorrow<T: ?Sized> {
     fn borrow(&self) -> Box<dyn Deref<Target=T> + '_>;
@@ -197,8 +197,7 @@ impl<T: Grounded> CustomMatch for Shared<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bind;
-    use crate::atom::matcher::Bindings;
+    use hyperon_atom::matcher::Bindings;
 
     #[test]
     fn debug_for_shared() {
